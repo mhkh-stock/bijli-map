@@ -1,0 +1,37 @@
+/* Bijli Map — deep navy + amber electric theme. */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0a1424; color: #eaf0f8; line-height: 1.5; }
+a { color: #ffc93c; }
+.topbar { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; padding: 14px 22px; background: #07101f; border-bottom: 3px solid #ffc93c; }
+.logo { font-size: 20px; font-weight: 700; }
+.logo .urdu { color: #ffc93c; font-size: 17px; }
+.topbar nav a { margin-left: 16px; text-decoration: none; font-weight: 600; }
+.topbar nav a:hover { text-decoration: underline; }
+.hero { padding: 34px 22px 26px; max-width: 1100px; margin: 0 auto; }
+.hero h1 { margin: 0 0 8px; font-size: 32px; }
+.hero p { color: #c3d0e2; max-width: 820px; }
+.warn { background: #2a1f00; border: 1px solid #ffc93c; border-radius: 8px; padding: 10px 14px; color: #ffe9a8; }
+.section { max-width: 1100px; margin: 0 auto; padding: 18px 22px; }
+.section h2 { margin: 8px 0 6px; font-size: 22px; }
+.note { color: #9fb0c8; font-size: 14px; }
+.card { background: #12233c; border: 1px solid #22385c; border-radius: 10px; padding: 16px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 12px 0; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: #c3d0e2; }
+input, select { background: #0a1424; color: #eaf0f8; border: 1px solid #33507e; border-radius: 6px; padding: 8px 10px; font-size: 15px; min-width: 170px; }
+button { background: #ffc93c; color: #1a1200; border: 0; border-radius: 6px; padding: 9px 18px; font-size: 15px; font-weight: 700; cursor: pointer; }
+button:hover { background: #ffda6b; }
+button.secondary { background: #22385c; color: #eaf0f8; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: #12233c; border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #22385c; font-size: 15px; }
+th { background: #1a2f52; color: #ffc93c; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+.badge.out { background: #e11d2e; color: #fff; }
+.badge.restored { background: #1fae6a; color: #fff; }
+.badge.none { background: #33507e; color: #dbe6f5; }
+.badge.demo { background: transparent; border: 1px solid #ffc93c; color: #ffc93c; }
+.badge.example { background: transparent; border: 1px solid #7fa3d1; color: #7fa3d1; }
+.result { margin-top: 12px; padding: 14px; background: #12233c; border: 1px solid #22385c; border-radius: 10px; font-size: 17px; }
+.result b { color: #ffc93c; }
+footer { max-width: 1100px; margin: 0 auto; padding: 20px 22px 40px; color: #9fb0c8; font-size: 14px; border-top: 1px solid #22385c; }
+@media (max-width: 640px) { .hero h1 { font-size: 26px; } input, select { min-width: 140px; } }

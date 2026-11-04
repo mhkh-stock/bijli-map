@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bijli Map — Pakistan Power Outage Map</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">⚡ Bijli Map <span class="urdu">بجلی میپ</span></div>
+  <nav>
+    <a href="#report">Report</a>
+    <a href="#board">Live Board</a>
+    <a href="#tracker">Scheduled vs Actual</a>
+    <a href="#estimator">UPS Estimator</a>
+    <a href="#discos">DISCOs</a>
+    <a href="admin.html">Admin</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>Apke area mein light hai ya nahi?</h1>
+  <p>Community-reported power outages across Pakistan, on one board — plus the official schedule next to what people actually reported, a UPS runtime estimator, and every DISCO in one directory.</p>
+  <p class="warn">⚠️ Reports here are <strong>COMMUNITY REPORTS (unverified)</strong> — they come from visitors, not from any DISCO. For an official complaint, call the national helpline <strong>118</strong>. Nothing on this board is presented as official data.</p>
+</section>
+
+<section id="report" class="section">
+  <h2>Report an outage — 10 seconds</h2>
+  <div class="card">
+    <div class="row">
+      <label>City <input id="repCity" placeholder="e.g. Lahore"></label>
+      <label>Area <input id="repArea" placeholder="e.g. Gulberg"></label>
+      <label>Feeder (optional) <input id="repFeeder" placeholder="from your bill, if you know it"></label>
+      <label>Status
+        <select id="repStatus">
+          <option value="out">Light outage (light gayi)</option>
+          <option value="restored">Light restored (light aa gayi)</option>
+        </select>
+      </label>
+      <label>Note (optional) <input id="repNote" placeholder="e.g. since 2 hours"></label>
+      <button id="repBtn">Submit report</button>
+    </div>
+    <div id="repResult" class="note"></div>
+  </div>
+</section>
+
+<section id="board" class="section">
+  <h2>Live area board</h2>
+  <p class="note">Status = latest community report for that area. <span class="badge demo">DEMO</span> = test report seeded to show how the board works, not a real outage. Areas marked <span class="badge example">EXAMPLE</span> were seeded as examples — real areas appear as people report them.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>City</th><th>Area</th><th>DISCO</th><th>Status</th><th>Reports</th><th>Last report</th></tr></thead>
+      <tbody id="boardBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="tracker" class="section">
+  <h2>Scheduled vs actual — kitni der light gayi?</h2>
+  <p class="note">Scheduled hours are the official schedule entered by admin (examples are marked EXAMPLE). Actual hours are computed only from completed out → restored report pairs on that date. An outage still open is <strong>not</strong> counted, and with few reports the actual figure is incomplete — the site says so instead of guessing.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>City / Area</th><th>DISCO</th><th>Date</th><th>Scheduled</th><th>Actual (from reports)</th><th>Note</th></tr></thead>
+      <tbody id="trackerBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="estimator" class="section">
+  <h2>UPS runtime estimator — kitni der chalega?</h2>
+  <p class="note">Battery energy (Ah × volts) × inverter efficiency ÷ load = runtime. Default efficiency 85% (inverter losses). Battery age, temperature and real load change the result — this is an estimate, not a promise.</p>
+  <div class="card">
+    <div class="row">
+      <label>Battery (Ah) <input id="estAh" type="number" min="1" step="1" value="100"></label>
+      <label>Voltage (V) <input id="estV" type="number" min="1" step="1" value="12"></label>
+      <label>Load (watts) <input id="estW" type="number" min="1" step="1" value="200"></label>
+      <button id="estBtn">Estimate</button>
+    </div>
+    <div id="estResult" class="result">Enter your battery and load, then press Estimate.</div>
+  </div>
+</section>
+
+<section id="discos" class="section">
+  <h2>DISCO directory — all of Pakistan</h2>
+  <p class="note">Pakistan has 10 public distribution companies plus K-Electric for Karachi. Load-shedding is decided per <strong>feeder</strong> (the line from the grid station), not per neighbourhood — two nearby streets can have different schedules. Your feeder name is on your bill.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>DISCO</th><th>Region</th><th>Helpline</th></tr></thead>
+      <tbody id="discoBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <p><strong>About the numbers:</strong> every figure on this site shows its basis — community reports, official schedule, or estimate. Reported context (not our measurement): a NEPRA review found actual outages on very-high-loss feeders averaging about 12h 14m, above scheduled limits — which is exactly why scheduled vs actual needs tracking.</p>
+  <p>No SMS/WhatsApp alerts yet — that is a v2 step, not claimed here. KE customers can also use the official KE Live app (Karachi only); this map aims to cover all DISCOs.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
