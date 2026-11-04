@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bijli Map — Admin</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">⚡ Bijli Map — Admin</div>
+  <nav><a href="index.html">← Back to map</a></nav>
+</header>
+
+<section class="section">
+  <h2>Admin panel</h2>
+  <p class="note">Admin gate is a simple shared code (demo-grade — see README). Use it to moderate community reports, add areas, and enter official schedules. Nothing here sends alerts or touches official DISCO systems.</p>
+  <div class="row">
+    <label>Admin code <input id="code" type="password" placeholder="default: bijli-admin"></label>
+    <button id="loadBtn">Load reports</button>
+  </div>
+  <div id="adminMsg" class="note"></div>
+</section>
+
+<section class="section">
+  <h2>Moderate reports</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>City / Area</th><th>Status</th><th>Note</th><th>Time</th><th>Flags</th><th>Action</th></tr></thead>
+      <tbody id="repBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section">
+  <h2>Add area</h2>
+  <div class="card"><div class="row">
+    <label>City <input id="newCity" placeholder="e.g. Lahore"></label>
+    <label>Area <input id="newArea" placeholder="e.g. Model Town"></label>
+    <label>DISCO <input id="newDisco" placeholder="e.g. LESCO"></label>
+    <label>Feeder <input id="newFeeder" placeholder="optional"></label>
+    <button id="addAreaBtn">Add area</button>
+  </div></div>
+</section>
+
+<section class="section">
+  <h2>Add official schedule</h2>
+  <p class="note">Enter the official scheduled load-shedding hours for an area, from the DISCO's published schedule. Mark clearly in the note if it is an example.</p>
+  <div class="card"><div class="row">
+    <label>Area ID <input id="schArea" type="number" placeholder="from the board (ask admin for IDs)"></label>
+    <label>Date <input id="schDate" type="date"></label>
+    <label>Scheduled hours (0–24) <input id="schHours" type="number" min="0" max="24" step="0.5"></label>
+    <label>Note <input id="schNote" placeholder="e.g. official schedule / EXAMPLE"></label>
+    <button id="addSchBtn">Save schedule</button>
+  </div></div>
+  <p class="note">Tip: open <a href="/api/board">/api/board</a> in a tab to see area IDs.</p>
+</section>
+
+<script src="admin.js"></script>
+</body>
+</html>
