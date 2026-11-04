@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS reports (
   hidden INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS district_admins (
+  city TEXT PRIMARY KEY, code TEXT NOT NULL
+);
 `);
 
 function discoId(name, region) {
@@ -165,6 +168,105 @@ function tracker() {
     return { ...r, actual_hours: act.hours, completed_windows: act.windows, open_outage: act.open_outage };
   });
 }
+// ---- district pages (server-rendered, so search engines can read each city) ----
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function citySlug(city) {
+  return String(city).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function cities() {
+  return db.prepare('SELECT DISTINCT city FROM areas ORDER BY city').all().map((r) => r.city);
+}
+function findCityBySlug(slug) {
+  return cities().find((c) => citySlug(c) === slug) || null;
+}
+function cityStats(city) {
+  const ars = areas().filter((a) => a.city === city);
+  const b = board().filter((x) => x.city === city);
+  const visCount = b.reduce((n, x) => n + x.report_count, 0);
+  const latest = b.map((x) => x.last_report_at).filter(Boolean).sort().pop() || null;
+  return { areas: ars, boardRows: b, reportCount: visCount, latestAt: latest };
+}
+function pageShell(title, desc, body) {
+  return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+    + '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+    + '<title>' + escHtml(title) + '</title>\n'
+    + '<meta name="description" content="' + escHtml(desc) + '">\n'
+    + '<link rel="stylesheet" href="/styles.css">\n</head>\n<body>\n'
+    + '<header class="topbar"><div class="logo">⚡ Bijli Map <span class="urdu">بجلی میپ</span></div>'
+    + '<nav><a href="/">Home</a><a href="/districts">All cities</a><a href="/admin.html">Admin</a></nav></header>\n'
+    + body + '\n</body>\n</html>\n';
+}
+const DISCLAIMER = 'Reports on this page are <strong>COMMUNITY REPORTS (unverified)</strong> — they come from visitors, not from any DISCO. '
+  + 'For an official complaint, call the national electricity helpline <strong>118</strong>. Nothing here is official DISCO data.';
+function districtPageHtml(city) {
+  const st = cityStats(city);
+  const tr = tracker().filter((r) => r.city === city);
+  const schedTotal = tr.reduce((n, r) => n + r.scheduled_hours, 0);
+  const actTotal = tr.reduce((n, r) => n + (r.actual_hours === null ? 0 : r.actual_hours), 0);
+  const openCount = tr.filter((r) => r.open_outage).length;
+  const others = cities().filter((c) => c !== city);
+  const areaRows = st.boardRows.map((r) => '<tr><td>' + escHtml(r.area) + (r.is_example ? ' <span class="badge example">EXAMPLE</span>' : '') + '</td><td>'
+    + escHtml(r.disco || '—') + '</td><td>' + escHtml(r.feeder || '—') + '</td><td>'
+    + (r.status ? '<span class="badge ' + (r.status === 'out' ? 'out' : 'restored') + '">' + escHtml(r.status) + '</span>' : '<span class="badge none">no reports</span>') + '</td><td>'
+    + r.report_count + '</td><td>' + escHtml(r.last_report_at || '—') + '</td></tr>').join('')
+    || '<tr><td colspan="6">No areas with reports in this city yet.</td></tr>';
+  const trRows = tr.map((r) => '<tr><td>' + escHtml(r.area) + '</td><td>' + escHtml(r.date) + '</td><td>'
+    + r.scheduled_hours + 'h</td><td>' + (r.actual_hours === null ? 'not enough reports yet' : r.actual_hours + 'h') + '</td><td>'
+    + escHtml(r.note) + '</td></tr>').join('')
+    || '<tr><td colspan="5">No schedules entered for this city yet.</td></tr>';
+  const body = '<section class="hero"><h1>Power outages in ' + escHtml(city) + '</h1>'
+    + '<p>Current community-reported power outages in ' + escHtml(city) + ', Pakistan — live area board and scheduled vs actual load-shedding, from Bijli Map.</p>'
+    + '<p class="warn">⚠️ ' + DISCLAIMER + '</p></section>'
+    + '<section class="section"><h2>Live area board — ' + escHtml(city) + '</h2>'
+    + '<p class="note">' + st.areas.length + ' areas, ' + st.reportCount + ' visible community reports'
+    + (st.latestAt ? ', latest report ' + escHtml(st.latestAt) : ', no reports yet') + '.</p>'
+    + '<div class="table-wrap"><table><thead><tr><th>Area</th><th>DISCO</th><th>Feeder</th><th>Status</th><th>Reports</th><th>Last report</th></tr></thead>'
+    + '<tbody>' + areaRows + '</tbody></table></div></section>'
+    + '<section class="section"><h2>Scheduled vs actual — ' + escHtml(city) + '</h2>'
+    + '<p class="note">Scheduled ' + Math.round(schedTotal * 100) / 100 + 'h in total across entered schedules; actual '
+    + Math.round(actTotal * 100) / 100 + 'h from completed out → restored report pairs only'
+    + (openCount ? '; ' + openCount + ' outage(s) still open and not counted' : '') + '.</p>'
+    + '<div class="table-wrap"><table><thead><tr><th>Area</th><th>Date</th><th>Scheduled</th><th>Actual (from reports)</th><th>Note</th></tr></thead>'
+    + '<tbody>' + trRows + '</tbody></table></div></section>'
+    + '<section class="section"><h2>Other cities on Bijli Map</h2><p>'
+    + others.map((c) => '<a href="/district/' + citySlug(c) + '">' + escHtml(c) + '</a>').join(' · ')
+    + '</p><p><a href="/districts">All cities</a> · <a href="/">Back to the live map</a></p></section>';
+  return pageShell(
+    'Power outages in ' + city + ' today — Bijli Map',
+    'Current community-reported power outages in ' + city + ', Pakistan, with scheduled vs actual load-shedding. Community reports are unverified; for an official complaint call helpline 118.',
+    body);
+}
+function districtsIndexHtml() {
+  const rows = cities().map((c) => {
+    const st = cityStats(c);
+    return '<tr><td><a href="/district/' + citySlug(c) + '">' + escHtml(c) + '</a></td><td>' + st.areas.length
+      + '</td><td>' + st.reportCount + '</td><td>' + escHtml(st.latestAt || '—') + '</td></tr>';
+  }).join('');
+  const body = '<section class="hero"><h1>Power outages by city — Bijli Map</h1>'
+    + '<p>Every city on Bijli Map has its own page, so each city\'s outages can be found separately. '
+    + 'Pick a city to see its live area board and scheduled vs actual load-shedding.</p>'
+    + '<p class="warn">⚠️ ' + DISCLAIMER + '</p></section>'
+    + '<section class="section"><h2>All cities</h2><div class="table-wrap"><table>'
+    + '<thead><tr><th>City</th><th>Areas</th><th>Community reports</th><th>Latest report</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table></div></section>';
+  return pageShell('Power outages by city — Bijli Map',
+    'Bijli Map city pages: community-reported power outages for every city, with scheduled vs actual load-shedding. Unverified community reports; official complaints go to helpline 118.',
+    body);
+}
+function sitemapXml(host) {
+  const base = 'http://' + host;
+  const urls = ['/', '/districts', ...cities().map((c) => '/district/' + citySlug(c))];
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    + urls.map((u) => '  <url><loc>' + base + u + '</loc></url>').join('\n')
+    + '\n</urlset>\n';
+}
+function districtCodeOk(city, code) {
+  if (!city || !code) return false;
+  const row = db.prepare('SELECT code FROM district_admins WHERE LOWER(city) = LOWER(?)').get(String(city));
+  return !!row && row.code === String(code);
+}
 function estimate(ah, volts, watts, eff) {
   const energyWh = ah * volts;
   const runtimeH = (energyWh * eff) / watts;
@@ -282,6 +384,79 @@ const server = http.createServer(async (req, res) => {
       db.prepare(`INSERT INTO schedules(area_id, date, scheduled_hours, note) VALUES(?,?,?,?)
         ON CONFLICT(area_id, date) DO UPDATE SET scheduled_hours=excluded.scheduled_hours, note=excluded.note`)
         .run(Number(body.area_id), String(body.date), hrs, String(body.note || '').slice(0, 300));
+      return sendJson(res, 200, { ok: true });
+    }
+    // ---- district pages (server-rendered SEO pages) ----
+    if (p === '/districts' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(districtsIndexHtml());
+    }
+    if (p === '/sitemap.xml' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8' });
+      return res.end(sitemapXml(req.headers.host || '127.0.0.1:3031'));
+    }
+    if (p.startsWith('/district/') && req.method === 'GET') {
+      const slug = decodeURIComponent(p.slice('/district/'.length)).split('/')[0];
+      const city = findCityBySlug(citySlug(slug));
+      if (!city) {
+        res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(pageShell('City not found — Bijli Map',
+          'No Bijli Map page exists for this city yet.',
+          '<section class="hero"><h1>City not found</h1><p>No areas have been reported for this city yet, so it has no page. '
+          + 'Report an outage from the <a href="/">home page</a> and the city will appear on <a href="/districts">All cities</a>.</p></section>'));
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(districtPageHtml(city));
+    }
+    // ---- district admins (per-city moderation codes, created by master only) ----
+    if (p === '/api/admin/district-admin' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body || body.code !== ADMIN_CODE) return sendJson(res, 403, { error: 'bad admin code' });
+      if (!body.city || !body.district_code) return sendJson(res, 400, { error: 'city and district_code required' });
+      const city = String(body.city).trim().slice(0, 80);
+      const dcode = String(body.district_code).trim().slice(0, 100);
+      if (!city || !dcode) return sendJson(res, 400, { error: 'city and district_code must not be empty' });
+      db.prepare(`INSERT INTO district_admins(city, code) VALUES(?,?)
+        ON CONFLICT(city) DO UPDATE SET code=excluded.code`).run(city, dcode);
+      return sendJson(res, 200, { ok: true, city });
+    }
+    if (p === '/api/admin/district-admin/remove' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body || body.code !== ADMIN_CODE) return sendJson(res, 403, { error: 'bad admin code' });
+      if (!body.city) return sendJson(res, 400, { error: 'city required' });
+      db.prepare('DELETE FROM district_admins WHERE LOWER(city) = LOWER(?)').run(String(body.city));
+      return sendJson(res, 200, { ok: true });
+    }
+    if (p === '/api/admin/district-admins' && req.method === 'GET') {
+      if (url.searchParams.get('code') !== ADMIN_CODE) return sendJson(res, 403, { error: 'bad admin code' });
+      const rows = db.prepare('SELECT city FROM district_admins ORDER BY city').all().map((r) => r.city);
+      return sendJson(res, 200, { cities: rows });
+    }
+    if (p === '/api/district-admin/board' && req.method === 'GET') {
+      const city = url.searchParams.get('city') || '';
+      const dcode = url.searchParams.get('district_code') || '';
+      if (!districtCodeOk(city, dcode)) return sendJson(res, 403, { error: 'bad district code' });
+      const ars = areas().filter((a) => a.city.toLowerCase() === city.toLowerCase());
+      const ids = new Set(ars.map((a) => a.id));
+      const reps = db.prepare(`
+        SELECT r.id id, r.area_id area_id, a.city city, a.area area, r.feeder feeder, r.status status,
+          r.note note, r.is_demo is_demo, r.hidden hidden, r.created_at created_at
+        FROM reports r JOIN areas a ON a.id = r.area_id ORDER BY r.created_at DESC, r.id DESC`).all()
+        .filter((r) => ids.has(r.area_id));
+      return sendJson(res, 200, { city, areas: ars, reports: reps });
+    }
+    if (p === '/api/district-admin/hide' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (!body || !body.city || !body.district_code || body.report_id === undefined) {
+        return sendJson(res, 400, { error: 'city, district_code and report_id required' });
+      }
+      if (!districtCodeOk(body.city, body.district_code)) return sendJson(res, 403, { error: 'bad district code' });
+      const rep = db.prepare(`SELECT a.city city FROM reports r JOIN areas a ON a.id = r.area_id WHERE r.id = ?`).get(Number(body.report_id));
+      if (!rep) return sendJson(res, 404, { error: 'report not found' });
+      if (rep.city.toLowerCase() !== String(body.city).toLowerCase()) {
+        return sendJson(res, 403, { error: 'report belongs to another city' });
+      }
+      db.prepare('UPDATE reports SET hidden = ? WHERE id = ?').run(body.hidden ? 1 : 0, Number(body.report_id));
       return sendJson(res, 200, { ok: true });
     }
     if (req.method === 'GET') return serveStatic(req, res);
