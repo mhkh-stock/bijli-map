@@ -32,3 +32,13 @@ $('addSchBtn').onclick = async () => {
   const d = await r.json();
   $('adminMsg').textContent = r.ok ? 'Schedule saved.' : ('Error: ' + (d.error || 'failed'));
 };
+$('daCreateBtn').onclick = async () => {
+  const r = await fetch('/api/admin/district-admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code(), city: $('daCityNew').value, district_code: $('daCodeNew').value }) });
+  const d = await r.json();
+  $('adminMsg').textContent = r.ok ? 'District code set for ' + d.city + '. Share it privately with that city\'s moderator.' : ('Error: ' + (d.error || 'failed'));
+};
+$('daListBtn').onclick = async () => {
+  const r = await fetch('/api/admin/district-admins?code=' + encodeURIComponent(code()));
+  const d = await r.json();
+  $('daList').textContent = r.ok ? (d.cities.length ? 'Cities with a district code: ' + d.cities.join(', ') + ' (codes are never shown here).' : 'No district codes issued yet.') : ('Error: ' + (d.error || 'failed'));
+};

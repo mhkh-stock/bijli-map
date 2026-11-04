@@ -23,6 +23,17 @@ out → restored windows only), UPS estimator (85% default efficiency),
 DISCO directory, admin moderation + areas + schedules. 26/26 tests pass.
 Seed: DISCO directory + 5 EXAMPLE areas/schedules + 4 DEMO reports only.
 
+## v1.1 — District pages + district admins (2026-11-04)
+- Server-rendered `/district/:city` pages (own title/meta/H1, live board,
+  scheduled-vs-actual summary, 118 disclaimer) + `/districts` index +
+  `/sitemap.xml`, so each city is separately findable on Google.
+- `district_admins` table: master-only create/remove/list (list never
+  returns codes); district-scoped board + hide endpoints enforce
+  city-matching server-side (wrong code or cross-city action = 403).
+- New `district-admin.html` (code in sessionStorage only) + District
+  admins section in master `admin.html`. Tests extended 26 → 50, all
+  passing on a fresh DB. Not pushed/deployed by this build step.
+
 ## v2 ideas — NOT started, do not claim
 - SMS/WhatsApp outage alerts (needs a real provider + user opt-in).
 - PKT-aware date grouping for the tracker (currently UTC).

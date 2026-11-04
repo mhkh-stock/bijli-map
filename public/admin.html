@@ -33,6 +33,18 @@
 </section>
 
 <section class="section">
+  <h2>District admins</h2>
+  <p class="note">Issue a private code for one city. Whoever holds that city's code can moderate ONLY that city's reports, from the <a href="district-admin.html">district admin page</a>. Codes are never shown back in the list below — keep them private when you issue them.</p>
+  <div class="card"><div class="row">
+    <label>City <input id="daCityNew" placeholder="e.g. Peshawar"></label>
+    <label>District code (private) <input id="daCodeNew" type="password" placeholder="e.g. peshawar-mod-2026"></label>
+    <button id="daCreateBtn">Set district code</button>
+    <button id="daListBtn" class="secondary">List cities with a code</button>
+  </div></div>
+  <div id="daList" class="note"></div>
+</section>
+
+<section class="section">
   <h2>Add area</h2>
   <div class="card"><div class="row">
     <label>City <input id="newCity" placeholder="e.g. Lahore"></label>
