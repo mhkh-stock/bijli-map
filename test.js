@@ -102,10 +102,77 @@ async function waitReady() {
     check('hidden report excluded from board (count 2 -> 1)',
       ta3 && ta3.report_count === 1 && ta3.status === 'restored', ta3);
 
+    // ---- district pages (server-rendered SEO pages) ----
+    const lpRes = await fetch(BASE + '/district/lahore');
+    const lpHtml = await lpRes.text();
+    check('district page Lahore: 200, city H1 + city title + disclaimer',
+      lpRes.status === 200 && lpHtml.includes('<h1>Power outages in Lahore</h1>')
+      && lpHtml.includes('<title>Power outages in Lahore today — Bijli Map</title>')
+      && lpHtml.includes('COMMUNITY REPORTS') && lpHtml.includes('118'), lpRes.status);
+    check('district page content is server-rendered (Gulberg row in HTML)',
+      lpHtml.includes('Gulberg') && lpHtml.includes('Gulberg-1'), lpHtml.length);
+    const lpCase = await fetch(BASE + '/district/LAHORE');
+    check('district page slug is case-insensitive', lpCase.status === 200, lpCase.status);
+    const lp404 = await fetch(BASE + '/district/nowherecity');
+    check('unknown city district page is 404', lp404.status === 404, lp404.status);
+    const smRes = await fetch(BASE + '/sitemap.xml');
+    const smXml = await smRes.text();
+    check('sitemap lists districts + district URLs',
+      smRes.status === 200 && smXml.includes('/districts') && smXml.includes('/district/lahore')
+      && smXml.includes('/district/peshawar'), smRes.status);
+    const diRes = await fetch(BASE + '/districts');
+    const diHtml = await diRes.text();
+    check('districts index lists cities with links',
+      diRes.status === 200 && diHtml.includes('/district/lahore') && diHtml.includes('/district/karachi'), diRes.status);
+
+    // ---- district admins ----
+    const daCreate = await post('/api/admin/district-admin', { code: CODE, city: 'Lahore', district_code: 'lahore-mod-1' });
+    check('master creates a Lahore district code', daCreate.ok === true && daCreate.city === 'Lahore', daCreate);
+    const daBadCreate = await post('/api/admin/district-admin', { code: 'wrong', city: 'Lahore', district_code: 'x' });
+    check('district code creation rejects wrong master code', daBadCreate.error === 'bad admin code', daBadCreate);
+    const daList = await j('/api/admin/district-admins?code=' + CODE);
+    const daListRaw = await (await fetch(BASE + '/api/admin/district-admins?code=' + CODE)).text();
+    check('district code list shows Lahore but never the code itself',
+      daList.cities.includes('Lahore') && !daListRaw.includes('lahore-mod-1'), daListRaw);
+    const daBoardBad = await fetch(BASE + '/api/district-admin/board?city=Lahore&district_code=wrong');
+    check('district board rejects wrong code (403)', daBoardBad.status === 403, daBoardBad.status);
+    const daBoard = await j('/api/district-admin/board?city=Lahore&district_code=lahore-mod-1');
+    check('district board with correct code shows Lahore reports only',
+      daBoard.reports.length > 0 && daBoard.reports.every((r) => r.city === 'Lahore'), daBoard.reports.length);
+    const lgOut = daBoard.reports.find((r) => r.area === 'Gulberg' && r.status === 'out');
+    check('district board finds Gulberg out report', !!lgOut, daBoard.reports.length);
+    const daHide = await post('/api/district-admin/hide', { city: 'Lahore', district_code: 'lahore-mod-1', report_id: lgOut.id, hidden: true });
+    check('district admin hides own-city report', daHide.ok === true, daHide);
+    const afterHide = await j('/api/admin/reports?code=' + CODE);
+    check('hidden-by-district report shows hidden in master list',
+      afterHide.rows.find((r) => r.id === lgOut.id).hidden === 1, afterHide.rows.find((r) => r.id === lgOut.id));
+    const khiRep = afterHide.rows.find((r) => r.city === 'Karachi');
+    const daCross = await post('/api/district-admin/hide', { city: 'Lahore', district_code: 'lahore-mod-1', report_id: khiRep.id, hidden: true });
+    check('district admin hiding another city report gets 403', daCross.error !== undefined, daCross);
+    const afterCross = await j('/api/admin/reports?code=' + CODE);
+    check('cross-city report unchanged after 403 attempt',
+      afterCross.rows.find((r) => r.id === khiRep.id).hidden === 0, afterCross.rows.find((r) => r.id === khiRep.id));
+    const daHideBad = await post('/api/district-admin/hide', { city: 'Lahore', district_code: 'wrong', report_id: lgOut.id, hidden: false });
+    check('district hide rejects wrong code', daHideBad.error !== undefined, daHideBad);
+    const daUnhide = await post('/api/district-admin/hide', { city: 'Lahore', district_code: 'lahore-mod-1', report_id: lgOut.id, hidden: false });
+    check('district admin restores own-city report', daUnhide.ok === true, daUnhide);
+    const daRemove = await post('/api/admin/district-admin/remove', { code: CODE, city: 'Lahore' });
+    check('master removes Lahore district code', daRemove.ok === true, daRemove);
+    const daBoardGone = await fetch(BASE + '/api/district-admin/board?city=Lahore&district_code=lahore-mod-1');
+    check('district board rejects code after removal (403)', daBoardGone.status === 403, daBoardGone.status);
+    const masterStill = await j('/api/admin/reports?code=' + CODE);
+    check('master code still works after district admin work', Array.isArray(masterStill.rows), masterStill);
+
     const home = await fetch(BASE + '/');
     check('homepage serves 200', home.status === 200, home.status);
+    const homeHtml = await home.text();
+    check('homepage links to districts index', homeHtml.includes('/districts'), homeHtml.length);
     const adminPage = await fetch(BASE + '/admin.html');
     check('admin page serves 200', adminPage.status === 200, adminPage.status);
+    const adminHtml = await adminPage.text();
+    check('admin page has District admins section', adminHtml.includes('District admins') && adminHtml.includes('daCreateBtn'), adminHtml.length);
+    const daPage = await fetch(BASE + '/district-admin.html');
+    check('district admin page serves 200', daPage.status === 200, daPage.status);
     const discos = await j('/api/discos');
     check('discos endpoint: 11 discos, all helpline 118',
       discos.discos.length === 11 && discos.discos.every((d) => d.helpline === '118'), discos.discos.length);
