@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://bijli-map-5e001.containers.snapdeploy.app/sitemap.xml
