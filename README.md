@@ -22,11 +22,21 @@ estimator, and every DISCO in one directory.
   neighbourhood — your feeder name is on your bill.
 - **Admin panel** (`admin.html`): moderate reports (hide/show), add areas,
   enter official schedules, and issue per-city district admin codes.
-- **District pages** (SEO): every city has its own server-rendered page —
-  `/district/lahore`, `/district/peshawar`, and so on — with its own title,
-  its live area board and its scheduled-vs-actual summary, so each city can
-  be found separately on Google instead of living only inside one JS page.
-  `/districts` lists every city; `/sitemap.xml` lists every city page.
+- **District pages** (SEO): all **170 districts of Pakistan** have their own
+  server-rendered page — `/district/lahore`, `/district/peshawar`,
+  `/district/nowshera`, and so on — with its own title, its live area board
+  and its scheduled-vs-actual summary, so each district can be found
+  separately on Google instead of living only inside one JS page.
+  `/districts` lists all 170 grouped by province; `/sitemap.xml` lists
+  every district page. The list is copied verbatim from Mandi Price
+  Intelligence (`lib/districts.js`). Districts with no reports yet show an
+  honest empty state ("No outage reports yet for this district") — never
+  invented outages. Where the DISCO is unambiguous from the DISCO
+  directory the page names it (e.g. Lahore → LESCO, Peshawar → PESCO,
+  Karachi divisions → K-Electric); where it is not clear, only helpline
+  **118** is shown and no DISCO is guessed. Cities that gain areas from
+  reports but are not district names (e.g. Karachi) keep their own page
+  too, listed under "Other reported cities".
 - **District admins** (`district-admin.html`): the main admin issues a
   private code per city; whoever holds a city's code moderates ONLY that
   city's reports (hide/show). Codes are never seeded — the main admin
@@ -38,6 +48,10 @@ estimator, and every DISCO in one directory.
   (Karachi), F-10 (Islamabad), University Road (Peshawar), Jaranwala Road
   (Faisalabad) — every one marked EXAMPLE. These are placeholders, not real
   schedules; replace them with the DISCOs' published schedules.
+- **170 districts**: the full district list (Punjab 41, KPK 38, Sindh 30,
+  Balochistan 36, ICT 1, Gilgit-Baltistan 14, AJK 10), copied verbatim from
+  Mandi Price Intelligence — no areas, schedules or reports are seeded for
+  them, so empty districts stay honestly empty until someone reports.
 - **4 DEMO reports**: labelled DEMO in the UI, seeded only so the board and
   tracker mechanics can be tested. They are NOT real outage claims.
 - No other outages are claimed anywhere on the site.
@@ -51,7 +65,7 @@ change it on deploy).
 ## Run
 ```sh
 node server.js          # http://127.0.0.1:3031
-node test.js            # 50 checks on a fresh DB (all must pass)
+node test.js            # 60 checks on a fresh DB (all must pass)
 ```
 
 ## Honest limits
@@ -71,5 +85,7 @@ node test.js            # 50 checks on a fresh DB (all must pass)
   master code): set private codes, because anyone holding a city's code
   moderates that whole city. A district code never grants access to
   another city's reports (enforced server-side, tested).
-- District pages are city-level (one page per city in the areas table);
-  new cities get a page automatically once an area is reported there.
+- District pages are district-level (all 170 districts, plus any city that
+  gains areas from reports); a district with no reports shows an honest
+  empty state and no invented outages, and a DISCO is named only where the
+  DISCO directory makes it unambiguous — otherwise only helpline 118.

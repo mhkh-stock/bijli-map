@@ -125,6 +125,53 @@ async function waitReady() {
     check('districts index lists cities with links',
       diRes.status === 200 && diHtml.includes('/district/lahore') && diHtml.includes('/district/karachi'), diRes.status);
 
+    // ---- all 170 districts (copied from Mandi's list) ----
+    const apiDistricts = await j('/api/districts');
+    const expectedCounts = { Punjab: 41, 'Khyber Pakhtunkhwa': 38, Sindh: 30, Balochistan: 36, 'Islamabad Capital Territory': 1, 'Gilgit-Baltistan': 14, 'Azad Jammu and Kashmir': 10 };
+    const gotCounts = Object.fromEntries(apiDistricts.per_province.map((g) => [g.name, g.districts]));
+    check('api/districts: 170 districts with Mandi counts 41/38/30/36/1/14/10',
+      apiDistricts.total === 170 && JSON.stringify(gotCounts) === JSON.stringify(expectedCounts), gotCounts);
+    const districtSlugs = apiDistricts.districts.map((d) => d.slug);
+    check('api/districts: 170 unique slugs', new Set(districtSlugs).size === 170, districtSlugs.length);
+    const indexSlugs = new Set([...diHtml.matchAll(/href="\/district\/([^"]+)"/g)].map((m) => m[1]));
+    check('districts index links all 170 district pages, grouped by province',
+      districtSlugs.every((s) => indexSlugs.has(s)) && diHtml.includes('Punjab (41 districts)')
+      && diHtml.includes('Khyber Pakhtunkhwa (38 districts)') && diHtml.includes('Balochistan (36 districts)'), indexSlugs.size);
+    check('sitemap lists all 170 district URLs',
+      smRes.status === 200 && districtSlugs.every((s) => smXml.includes('/district/' + s)), smXml.length);
+    const nwRes = await fetch(BASE + '/district/nowshera');
+    const nwHtml = await nwRes.text();
+    check('district page Nowshera (no seed data): 200, honest empty state, no fake outage, DISCO PESCO',
+      nwRes.status === 200 && nwHtml.includes('<h1>Power outages in Nowshera</h1>')
+      && nwHtml.includes('No outage reports yet for this district')
+      && nwHtml.includes('DISCO for this district: <strong>PESCO</strong>')
+      && !nwHtml.includes('badge out') && !nwHtml.includes('badge restored'), nwRes.status);
+    const psRes = await fetch(BASE + '/district/peshawar');
+    const psHtml = await psRes.text();
+    check('district page Peshawar still 200 with title + DISCO PESCO',
+      psRes.status === 200 && psHtml.includes('<title>Power outages in Peshawar today — Bijli Map</title>')
+      && psHtml.includes('DISCO for this district: <strong>PESCO</strong>'), psRes.status);
+    const muRes = await fetch(BASE + '/district/multan');
+    const muHtml = await muRes.text();
+    check('district page Multan: 200, empty state, NO DISCO guess (helpline 118 only)',
+      muRes.status === 200 && muHtml.includes('No outage reports yet for this district')
+      && muHtml.includes('No single DISCO is listed for this district') && muHtml.includes('118')
+      && !muHtml.includes('DISCO for this district:'), muRes.status);
+    const gbRes = await fetch(BASE + '/district/gilgit');
+    const gbHtml = await gbRes.text();
+    check('district page Gilgit (GB): 200, empty state, no DISCO guess',
+      gbRes.status === 200 && gbHtml.includes('No outage reports yet for this district')
+      && gbHtml.includes('No single DISCO is listed for this district'), gbRes.status);
+    const khiRes = await fetch(BASE + '/district/karachi');
+    const khiHtml = await khiRes.text();
+    check('district page Karachi (non-district reported city) still works with K-Electric',
+      khiRes.status === 200 && khiHtml.includes('<h1>Power outages in Karachi</h1>')
+      && khiHtml.includes('K-Electric'), khiRes.status);
+    const keCheck = apiDistricts.districts.find((d) => d.name === 'Karachi East');
+    check('api/districts: Karachi East maps to K-Electric, Multan maps to no DISCO',
+      keCheck && keCheck.disco === 'K-Electric'
+      && apiDistricts.districts.find((d) => d.name === 'Multan').disco === null, keCheck);
+
     // ---- district admins ----
     const daCreate = await post('/api/admin/district-admin', { code: CODE, city: 'Lahore', district_code: 'lahore-mod-1' });
     check('master creates a Lahore district code', daCreate.ok === true && daCreate.city === 'Lahore', daCreate);
