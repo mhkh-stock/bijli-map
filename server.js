@@ -10,6 +10,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
+const { PROVINCE_ORDER, DISTRICTS, discoForDistrict } = require('./lib/districts');
 
 const PORT = Number(process.env.PORT || 3031);
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data', 'bijli.sqlite');
@@ -49,7 +50,21 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE TABLE IF NOT EXISTS district_admins (
   city TEXT PRIMARY KEY, code TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS districts (
+  name TEXT PRIMARY KEY, province TEXT NOT NULL
+);
 `);
+
+// ---- all 170 districts of Pakistan (copied verbatim from Mandi Price
+// Intelligence — see lib/districts.js). Idempotent: INSERT OR IGNORE runs
+// every start, so databases created before this expansion gain the new
+// districts too. Districts carry NO seeded areas, schedules or reports —
+// a district with no reports shows an honest empty state, never invented
+// outages. ----
+{
+  const ins = db.prepare('INSERT OR IGNORE INTO districts(name, province) VALUES(?,?)');
+  for (const d of DISTRICTS) ins.run(d.name, d.province);
+}
 
 function discoId(name, region) {
   db.prepare('INSERT OR IGNORE INTO discos(name, region, helpline) VALUES(?,?,?)').run(name, region || '', HELPLINE);
@@ -175,11 +190,33 @@ function escHtml(s) {
 function citySlug(city) {
   return String(city).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
+function districts() {
+  return db.prepare('SELECT name, province FROM districts ORDER BY name').all();
+}
+function provinceOf(name) {
+  const row = db.prepare('SELECT province FROM districts WHERE LOWER(name) = LOWER(?)').get(String(name));
+  return row ? row.province : null;
+}
+// Every district has a page, plus any city that gained areas from reports
+// (e.g. Karachi — the seeded example city, which is not one of Mandi's 170
+// district names — and any future reported city). Unknown names still 404.
 function cities() {
-  return db.prepare('SELECT DISTINCT city FROM areas ORDER BY city').all().map((r) => r.city);
+  const names = new Set(districts().map((d) => d.name));
+  for (const r of db.prepare('SELECT DISTINCT city FROM areas ORDER BY city').all()) names.add(r.city);
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 function findCityBySlug(slug) {
   return cities().find((c) => citySlug(c) === slug) || null;
+}
+// DISCO shown on a district page: the unambiguous mapping from
+// lib/districts.js for districts; for non-district cities (e.g. Karachi),
+// the single DISCO of the city's areas if they all agree, else none.
+// Never a guess — null means the page shows only helpline 118.
+function discoForCity(city) {
+  const prov = provinceOf(city);
+  if (prov) return discoForDistrict(city, prov);
+  const ds = [...new Set(areas().filter((a) => a.city.toLowerCase() === city.toLowerCase()).map((a) => a.disco).filter(Boolean))];
+  return ds.length === 1 ? ds[0] : null;
 }
 function cityStats(city) {
   const ars = areas().filter((a) => a.city === city);
@@ -206,7 +243,12 @@ function districtPageHtml(city) {
   const schedTotal = tr.reduce((n, r) => n + r.scheduled_hours, 0);
   const actTotal = tr.reduce((n, r) => n + (r.actual_hours === null ? 0 : r.actual_hours), 0);
   const openCount = tr.filter((r) => r.open_outage).length;
-  const others = cities().filter((c) => c !== city);
+  const prov = provinceOf(city);
+  const disco = discoForCity(city);
+  const isEmpty = st.areas.length === 0 && st.reportCount === 0;
+  const others = prov
+    ? districts().filter((d) => d.province === prov && d.name !== city).map((d) => d.name)
+    : cities().filter((c) => c !== city);
   const areaRows = st.boardRows.map((r) => '<tr><td>' + escHtml(r.area) + (r.is_example ? ' <span class="badge example">EXAMPLE</span>' : '') + '</td><td>'
     + escHtml(r.disco || '—') + '</td><td>' + escHtml(r.feeder || '—') + '</td><td>'
     + (r.status ? '<span class="badge ' + (r.status === 'out' ? 'out' : 'restored') + '">' + escHtml(r.status) + '</span>' : '<span class="badge none">no reports</span>') + '</td><td>'
@@ -217,7 +259,13 @@ function districtPageHtml(city) {
     + escHtml(r.note) + '</td></tr>').join('')
     || '<tr><td colspan="5">No schedules entered for this city yet.</td></tr>';
   const body = '<section class="hero"><h1>Power outages in ' + escHtml(city) + '</h1>'
-    + '<p>Current community-reported power outages in ' + escHtml(city) + ', Pakistan — live area board and scheduled vs actual load-shedding, from Bijli Map.</p>'
+    + '<p>Current community-reported power outages in ' + escHtml(city) + (prov ? ', ' + escHtml(prov) : '') + ', Pakistan — live area board and scheduled vs actual load-shedding, from Bijli Map.</p>'
+    + (disco
+      ? '<p class="note">DISCO for this ' + (prov ? 'district' : 'city') + ': <strong>' + escHtml(disco) + '</strong> · for an official complaint call the national electricity helpline <strong>118</strong>.</p>'
+      : '<p class="note">No single DISCO is listed for this district — for an official complaint call the national electricity helpline <strong>118</strong>.</p>')
+    + (isEmpty
+      ? '<p class="note"><strong>No outage reports yet for this district — be the first to report from the <a href="/">home page</a>.</strong> Nothing here is invented: no outages or schedules are shown until someone reports them.</p>'
+      : '')
     + '<p class="warn">⚠️ ' + DISCLAIMER + '</p></section>'
     + '<section class="section"><h2>Live area board — ' + escHtml(city) + '</h2>'
     + '<p class="note">' + st.areas.length + ' areas, ' + st.reportCount + ' visible community reports'
@@ -230,7 +278,7 @@ function districtPageHtml(city) {
     + (openCount ? '; ' + openCount + ' outage(s) still open and not counted' : '') + '.</p>'
     + '<div class="table-wrap"><table><thead><tr><th>Area</th><th>Date</th><th>Scheduled</th><th>Actual (from reports)</th><th>Note</th></tr></thead>'
     + '<tbody>' + trRows + '</tbody></table></div></section>'
-    + '<section class="section"><h2>Other cities on Bijli Map</h2><p>'
+    + '<section class="section"><h2>' + (prov ? 'Other districts in ' + escHtml(prov) : 'Other cities on Bijli Map') + '</h2><p>'
     + others.map((c) => '<a href="/district/' + citySlug(c) + '">' + escHtml(c) + '</a>').join(' · ')
     + '</p><p><a href="/districts">All cities</a> · <a href="/">Back to the live map</a></p></section>';
   return pageShell(
@@ -239,20 +287,30 @@ function districtPageHtml(city) {
     body);
 }
 function districtsIndexHtml() {
-  const rows = cities().map((c) => {
+  const rowFor = (c) => {
     const st = cityStats(c);
     return '<tr><td><a href="/district/' + citySlug(c) + '">' + escHtml(c) + '</a></td><td>' + st.areas.length
       + '</td><td>' + st.reportCount + '</td><td>' + escHtml(st.latestAt || '—') + '</td></tr>';
+  };
+  const tableHead = '<div class="table-wrap"><table>'
+    + '<thead><tr><th>District</th><th>Areas</th><th>Community reports</th><th>Latest report</th></tr></thead><tbody>';
+  const sections = PROVINCE_ORDER.map((prov) => {
+    const names = districts().filter((d) => d.province === prov).map((d) => d.name);
+    return '<section class="section"><h2>' + escHtml(prov) + ' (' + names.length + ' districts)</h2>'
+      + tableHead + names.map(rowFor).join('') + '</tbody></table></div></section>';
   }).join('');
-  const body = '<section class="hero"><h1>Power outages by city — Bijli Map</h1>'
-    + '<p>Every city on Bijli Map has its own page, so each city\'s outages can be found separately. '
-    + 'Pick a city to see its live area board and scheduled vs actual load-shedding.</p>'
+  const districtNames = new Set(districts().map((d) => d.name));
+  const otherCities = cities().filter((c) => !districtNames.has(c));
+  const otherSection = otherCities.length === 0 ? '' : '<section class="section"><h2>Other reported cities</h2>'
+    + '<p class="note">Cities with reports that are not district names (for example Karachi, which the district list splits into its divisions).</p>'
+    + tableHead + otherCities.map(rowFor).join('') + '</tbody></table></div></section>';
+  const body = '<section class="hero"><h1>Power outages by district — Bijli Map</h1>'
+    + '<p>All 170 districts of Pakistan have their own page, so each district\'s outages can be found separately. '
+    + 'Pick a district to see its live area board and scheduled vs actual load-shedding. Districts with no reports yet say so plainly — nothing is invented.</p>'
     + '<p class="warn">⚠️ ' + DISCLAIMER + '</p></section>'
-    + '<section class="section"><h2>All cities</h2><div class="table-wrap"><table>'
-    + '<thead><tr><th>City</th><th>Areas</th><th>Community reports</th><th>Latest report</th></tr></thead>'
-    + '<tbody>' + rows + '</tbody></table></div></section>';
-  return pageShell('Power outages by city — Bijli Map',
-    'Bijli Map city pages: community-reported power outages for every city, with scheduled vs actual load-shedding. Unverified community reports; official complaints go to helpline 118.',
+    + sections + otherSection;
+  return pageShell('Power outages by district — Bijli Map',
+    'Bijli Map district pages: community-reported power outages for all 170 districts of Pakistan, with scheduled vs actual load-shedding. Unverified community reports; official complaints go to helpline 118.',
     body);
 }
 function sitemapXml(host) {
@@ -317,6 +375,16 @@ const server = http.createServer(async (req, res) => {
         notice: 'Reports on this site are COMMUNITY REPORTS (unverified). They are not official DISCO data.' });
     }
     if (p === '/api/discos' && req.method === 'GET') return sendJson(res, 200, { discos: discos(), helpline: HELPLINE });
+    if (p === '/api/districts' && req.method === 'GET') {
+      const list = districts().map((d) => ({
+        name: d.name, province: d.province, slug: citySlug(d.name),
+        disco: discoForDistrict(d.name, d.province), // null where no DISCO is unambiguous
+      }));
+      const per_province = PROVINCE_ORDER.map((prov) => ({
+        name: prov, districts: list.filter((d) => d.province === prov).length,
+      }));
+      return sendJson(res, 200, { total: list.length, per_province, districts: list, helpline: HELPLINE });
+    }
     if (p === '/api/board' && req.method === 'GET') return sendJson(res, 200, { areas: board() });
     if (p === '/api/tracker' && req.method === 'GET') return sendJson(res, 200, { rows: tracker() });
     if (p === '/api/report' && req.method === 'POST') {
