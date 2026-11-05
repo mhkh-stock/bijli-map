@@ -34,6 +34,34 @@ Seed: DISCO directory + 5 EXAMPLE areas/schedules + 4 DEMO reports only.
   admins section in master `admin.html`. Tests extended 26 → 50, all
   passing on a fresh DB. Not pushed/deployed by this build step.
 
+## v1.2 — All 170 districts (2026-11-05)
+- District list copied verbatim from Mandi Price Intelligence
+  (`seed-data.json` → `lib/districts.js`): Punjab 41, KPK 38, Sindh 30,
+  Balochistan 36, ICT 1, Gilgit-Baltistan 14, AJK 10 = 170 districts,
+  seeded idempotently into a new `districts` table (existing databases gain
+  them on next start; no re-seed of areas/reports).
+- `/districts` lists all 170 grouped by province (with per-district area /
+  report counts); `/district/:slug` works for every district;
+  `/sitemap.xml` lists all 170 district URLs (+ `/` + `/districts`, and any
+  reported non-district city such as Karachi). New `GET /api/districts`
+  returns the full list with per-province counts and the DISCO mapping.
+- Empty-state rule: a district with no reports shows "No outage reports
+  yet for this district — be the first to report from the home page" and
+  no invented outages or schedules.
+- DISCO-mapping rule: a DISCO is named only where the DISCO directory
+  makes it unambiguous (Balochistan → QESCO, KPK → PESCO except the 8
+  ex-FATA districts → TESCO, Lahore/Kasur/Okara/Sheikhupura → LESCO,
+  Rawalpindi/Attock/Jhelum/Chakwal/Islamabad → IESCO, Karachi divisions →
+  K-Electric, Hyderabad → HESCO, Sukkur → SEPCO); everywhere else only
+  helpline 118 is shown, no guess. Gilgit-Baltistan and AJK have no DISCO
+  in the directory. Non-district reported cities (Karachi) show the single
+  DISCO of their areas if they all agree.
+- District pages now link "Other districts in <province>" instead of all
+  cities. The 5 example areas, 4 demo reports and the district-admin
+  system (per-city codes, 403 on wrong code / cross-city) are unchanged.
+  Tests extended 50 → 60, all passing on a fresh DB (run twice). Not
+  pushed/deployed by this build step.
+
 ## v2 ideas — NOT started, do not claim
 - SMS/WhatsApp outage alerts (needs a real provider + user opt-in).
 - PKT-aware date grouping for the tracker (currently UTC).
