@@ -3,93 +3,72 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bijli Map — Pakistan Power Outage Map</title>
+<title>Bijli Map — District Load-Shedding Schedules, Pakistan</title>
+<link rel="icon" href="/favicon.ico">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="topbar">
   <div class="logo">⚡ Bijli Map <span class="urdu">بجلی میپ</span></div>
   <nav>
-    <a href="#report">Report</a>
-    <a href="#board">Live Board</a>
-    <a href="#tracker">Scheduled vs Actual</a>
-    <a href="#estimator">UPS Estimator</a>
+    <a href="/districts">All districts</a>
     <a href="#discos">DISCOs</a>
-    <a href="/districts">Cities</a>
+    <a href="app.html">My dashboard</a>
     <a href="admin.html">Admin</a>
   </nav>
 </header>
 
 <section class="hero">
-  <h1>Apke area mein light hai ya nahi?</h1>
-  <p>Community-reported power outages across Pakistan, on one board — plus the official schedule next to what people actually reported, a UPS runtime estimator, and every DISCO in one directory.</p>
-  <p class="warn">⚠️ Reports here are <strong>COMMUNITY REPORTS (unverified)</strong> — they come from visitors, not from any DISCO. For an official complaint, call the national helpline <strong>118</strong>. Nothing on this board is presented as official data.</p>
-</section>
-
-<section id="report" class="section">
-  <h2>Report an outage — 10 seconds</h2>
-  <div class="card">
-    <div class="row">
-      <label>City <input id="repCity" placeholder="e.g. Lahore"></label>
-      <label>Area <input id="repArea" placeholder="e.g. Gulberg"></label>
-      <label>Feeder (optional) <input id="repFeeder" placeholder="from your bill, if you know it"></label>
-      <label>Status
-        <select id="repStatus">
-          <option value="out">Light outage (light gayi)</option>
-          <option value="restored">Light restored (light aa gayi)</option>
-        </select>
-      </label>
-      <label>Note (optional) <input id="repNote" placeholder="e.g. since 2 hours"></label>
-      <button id="repBtn">Submit report</button>
-    </div>
-    <div id="repResult" class="note"></div>
-  </div>
-</section>
-
-<section id="board" class="section">
-  <h2>Live area board</h2>
-  <p class="note">Status = latest community report for that area. <span class="badge demo">DEMO</span> = test report seeded to show how the board works, not a real outage. Areas marked <span class="badge example">EXAMPLE</span> were seeded as examples — real areas appear as people report them.</p>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>City</th><th>Area</th><th>DISCO</th><th>Status</th><th>Reports</th><th>Last report</th></tr></thead>
-      <tbody id="boardBody"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="tracker" class="section">
-  <h2>Scheduled vs actual — kitni der light gayi?</h2>
-  <p class="note">Scheduled hours are the official schedule entered by admin (examples are marked EXAMPLE). Actual hours are computed only from completed out → restored report pairs on that date. An outage still open is <strong>not</strong> counted, and with few reports the actual figure is incomplete — the site says so instead of guessing.</p>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>City / Area</th><th>DISCO</th><th>Date</th><th>Scheduled</th><th>Actual (from reports)</th><th>Note</th></tr></thead>
-      <tbody id="trackerBody"></tbody>
-    </table>
-  </div>
-</section>
-
-<section id="estimator" class="section">
-  <h2>UPS runtime estimator — kitni der chalega?</h2>
-  <p class="note">Battery energy (Ah × volts) × inverter efficiency ÷ load = runtime. Default efficiency 85% (inverter losses). Battery age, temperature and real load change the result — this is an estimate, not a promise.</p>
-  <div class="card">
-    <div class="row">
-      <label>Battery (Ah) <input id="estAh" type="number" min="1" step="1" value="100"></label>
-      <label>Voltage (V) <input id="estV" type="number" min="1" step="1" value="12"></label>
-      <label>Load (watts) <input id="estW" type="number" min="1" step="1" value="200"></label>
-      <button id="estBtn">Estimate</button>
-    </div>
-    <div id="estResult" class="result">Enter your battery and load, then press Estimate.</div>
-  </div>
+  <h1>Aapke district ki load-shedding schedule</h1>
+  <p>Official load-shedding schedules for your district and grid station, published by the government admin — plus on/off messages from people in your own grid only. Every person sees <strong>only their own district</strong>.</p>
+  <p class="warn">🔒 <strong>Login required.</strong> Sign up with your Gmail and CNIC — your CNIC district code must match the district you select. Schedules and messages are never shown to another district. For an official complaint, call the national electricity helpline <strong>118</strong>.</p>
+  <p class="note">CNIC check, honestly: we check that the first 3 digits of your CNIC match your district's prefix. This is a format/prefix check only — it is <strong>not</strong> NADRA verification, and it cannot prove the CNIC belongs to you. A CNIC also records where it was registered, not where you live now, so a real resident can hold another district's prefix. Your full CNIC is never stored — only a one-way hash of it.</p>
+  <div id="meBox" class="note"></div>
 </section>
 
 <section class="section">
-  <h2>Outages by city</h2>
-  <p class="note">Every city has its own page — <a href="/districts">browse all cities</a> to open one directly, or share a city's page (for example, <a href="/district/peshawar">Peshawar</a> or <a href="/district/lahore">Lahore</a>).</p>
+  <h2>Sign up — public account</h2>
+  <div class="card"><div class="row">
+    <label>Gmail <input id="suGmail" type="email" placeholder="you@gmail.com"></label>
+    <label>Password (min 8) <input id="suPass" type="password" placeholder="at least 8 characters"></label>
+    <label>Phone (optional) <input id="suPhone" placeholder="03xx-xxxxxxx"></label>
+    <label>CNIC <input id="suCnic" placeholder="17301-1234567-1"></label>
+    <label>Province <select id="suProvince"><option value="">— select —</option></select></label>
+    <label>District <select id="suDistrict"><option value="">— select province first —</option></select></label>
+    <p class="note" id="districtNote"></p>
+    <button id="suBtn">Sign up</button>
+  </div><div id="suMsg" class="note"></div></div>
+</section>
+
+<section class="section">
+  <h2>Log in</h2>
+  <div class="card"><div class="row">
+    <label>Gmail <input id="liGmail" type="email" placeholder="you@gmail.com"></label>
+    <label>Password <input id="liPass" type="password"></label>
+    <button id="liBtn">Log in</button>
+    <button id="loBtn" class="secondary">Log out</button>
+  </div><div id="liMsg" class="note"></div></div>
+</section>
+
+<section class="section">
+  <h2>How it works</h2>
+  <ol>
+    <li><strong>Sign up</strong> with Gmail, password and CNIC. Your CNIC district must match the district you pick.</li>
+    <li><strong>Open your dashboard</strong> — you see only your district.</li>
+    <li><strong>Pick your grid station</strong> — a grid is shown only after the admin publishes a schedule for it.</li>
+    <li><strong>See the official schedule</strong> for your grid, and <strong>post "power on / power off"</strong> so your neighbours in the same grid know.</li>
+  </ol>
+  <p class="note">Government admins publish the schedule from the <a href="admin.html">admin portal</a>. Admin accounts are created by the master admin only — there is no self-registration for admins. An admin can publish, edit and delete the schedule for their own grid only, never another district's.</p>
+</section>
+
+<section class="section">
+  <h2>Districts</h2>
+  <p class="note">All 168 districts of Pakistan have their own page — <a href="/districts">browse all districts</a>. Logged-out visitors see district names only, never schedules.</p>
 </section>
 
 <section id="discos" class="section">
   <h2>DISCO directory — all of Pakistan</h2>
-  <p class="note">Pakistan has 10 public distribution companies plus K-Electric for Karachi. Load-shedding is decided per <strong>feeder</strong> (the line from the grid station), not per neighbourhood — two nearby streets can have different schedules. Your feeder name is on your bill.</p>
+  <p class="note">Pakistan has 10 public distribution companies plus K-Electric for Karachi. Load-shedding is decided per <strong>grid station / feeder</strong> (the line from the grid station), not per neighbourhood — two nearby streets can have different schedules. Your feeder name is on your bill.</p>
   <div class="table-wrap">
     <table>
       <thead><tr><th>DISCO</th><th>Region</th><th>Helpline</th></tr></thead>
@@ -98,11 +77,76 @@
   </div>
 </section>
 
+<section class="section">
+  <h2>About Bijli Map — who runs it, how to reach us</h2>
+  <p>Bijli Map is run by <strong>M. Hashir</strong>. Schedules are published by the government admin for each grid station; on/off messages come from logged-in people in that grid only. This site is not a DISCO and not an official complaint channel — for an official complaint, call the national electricity helpline <strong>118</strong>.</p>
+  <p><strong>Government office / DISCO staff:</strong> to request an admin account for your grid, email <a href="mailto:mhkh3200@gmail.com">mhkh3200@gmail.com</a>. Admin accounts are created by the master admin only — never through this website's signup form. Give the Gmail + password to the government person privately.</p>
+  <p><strong>Forgot your password?</strong> There is no email reset in this version — email the address above and the master admin will reset it for you.</p>
+  <p><strong>Moved to another district?</strong> Your account is tied to your CNIC district. Email the address above and the master admin can move it.</p>
+</section>
+
 <footer>
-  <p><strong>About the numbers:</strong> every figure on this site shows its basis — community reports, official schedule, or estimate. Reported context (not our measurement): a NEPRA review found actual outages on very-high-loss feeders averaging about 12h 14m, above scheduled limits — which is exactly why scheduled vs actual needs tracking.</p>
-  <p>No SMS/WhatsApp alerts yet — that is a v2 step, not claimed here. KE customers can also use the official KE Live app (Karachi only); this map aims to cover all DISCOs.</p>
+  <p><strong>About the numbers:</strong> schedules are published by the government admin for each grid. On/off messages come from logged-in people in that grid only. Nothing here is official DISCO data unless the admin published it.</p>
+  <p>True Google sign-in and SMS codes are a future step: Google sign-in needs a Google Cloud OAuth client, and SMS codes need a paid SMS provider. This version uses Gmail + password accounts with the CNIC district check, built so Google sign-in can plug in later.</p>
 </footer>
 
-<script src="app.js"></script>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let DISTRICTS = [];
+async function loadDistricts() {
+  const d = await (await fetch('/api/districts')).json();
+  DISTRICTS = d.districts;
+  const provs = [...new Set(DISTRICTS.map((x) => x.province))];
+  $('suProvince').innerHTML = '<option value="">— select —</option>' + provs.map((p) => '<option>' + esc(p) + '</option>').join('');
+}
+$('suProvince').onchange = () => {
+  const prov = $('suProvince').value;
+  const list = DISTRICTS.filter((d) => d.province === prov);
+  // Districts whose CNIC code is not verified yet cannot be signed up
+  // for — show them disabled, with the reason, instead of letting the
+  // person fill the whole form and only then learn it is impossible.
+  $('suDistrict').innerHTML = '<option value="">— select —</option>' + list.map((d) => d.cnic_verified
+    ? '<option>' + esc(d.name) + '</option>'
+    : '<option disabled>' + esc(d.name) + ' — CNIC check pending</option>').join('');
+  const pending = list.filter((d) => !d.cnic_verified).length;
+  $('districtNote').textContent = pending > 0
+    ? pending + ' district(s) in this province cannot be signed up for yet — their CNIC district code is still being verified.'
+    : '';
+};
+async function loadDiscos() {
+  const d = await (await fetch('/api/discos')).json();
+  $('discoBody').innerHTML = d.discos.map((x) => '<tr><td>' + esc(x.name) + '</td><td>' + esc(x.region) + '</td><td>' + esc(x.helpline) + '</td></tr>').join('');
+}
+async function refreshMe() {
+  const d = await (await fetch('/api/auth/me')).json();
+  if (d.logged_in) {
+    $('meBox').innerHTML = 'Logged in as <b>' + esc(d.user.gmail) + '</b> (' + esc(d.user.role) + ', ' + esc(d.user.district) + '). <a href="app.html">Open your dashboard →</a>';
+  } else {
+    $('meBox').textContent = 'Not logged in.';
+  }
+}
+$('suBtn').onclick = async () => {
+  const body = { gmail: $('suGmail').value, password: $('suPass').value, phone: $('suPhone').value, cnic: $('suCnic').value, province: $('suProvince').value, district: $('suDistrict').value };
+  const r = await fetch('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('suMsg').textContent = r.ok ? 'Welcome! Account created for ' + d.user.district + '. Opening your dashboard…' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) { refreshMe(); setTimeout(() => { location.href = 'app.html'; }, 800); }
+};
+$('liBtn').onclick = async () => {
+  const body = { gmail: $('liGmail').value, password: $('liPass').value };
+  const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('liMsg').textContent = r.ok ? 'Logged in as ' + d.user.gmail + ' (' + d.user.role + ', ' + d.user.district + '). Opening dashboard…' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) { refreshMe(); setTimeout(() => { location.href = d.user.role === 'admin' ? 'admin.html' : 'app.html'; }, 800); }
+};
+$('loBtn').onclick = async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  $('liMsg').textContent = 'Logged out.';
+  refreshMe();
+};
+loadDistricts(); loadDiscos(); refreshMe();
+</script>
 </body>
 </html>

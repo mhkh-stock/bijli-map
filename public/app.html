@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bijli Map — My dashboard</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">⚡ Bijli Map — My dashboard</div>
+  <nav><a href="index.html">Home</a><a href="/districts">All districts</a><a href="admin.html">Admin</a></nav>
+</header>
+
+<section class="section">
+  <div id="meBox" class="note">Loading…</div>
+  <div id="dash" style="display:none">
+    <h2>Your district: <span id="myDistrict"></span></h2>
+    <p class="note">You see only your own district. A grid station is listed only after the admin publishes a schedule for it.</p>
+    <h3>Grid stations with a published schedule</h3>
+    <div id="gridList" class="note">Loading grids…</div>
+
+    <div id="gridDetail" style="display:none">
+      <div id="exampleBanner" class="warn" style="display:none">⚠️ <strong>EXAMPLE grid</strong> — this schedule is a sample, not the official schedule. The government admin will publish the real schedule here.</div>
+      <div id="nowBox" class="status-now"></div>
+      <h3>Schedule — <span id="gridName"></span></h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Day</th><th>Load-shedding windows (off)</th><th>Note</th></tr></thead>
+        <tbody id="schBody"></tbody>
+      </table></div>
+
+      <h3>Power on / off — people in this grid</h3>
+      <p class="note">Messages here are from logged-in people in this grid only. Post yours below.</p>
+      <div class="card"><div class="row">
+        <label>Status
+          <select id="msgStatus">
+            <option value="off">Light off (light gayi)</option>
+            <option value="on">Light on (light aa gayi)</option>
+          </select>
+        </label>
+        <label>Note (optional) <input id="msgNote" placeholder="e.g. since 2 hours"></label>
+        <button id="msgBtn">Post</button>
+      </div><div id="msgResult" class="note"></div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Time</th><th>Status</th><th>Note</th><th></th></tr></thead>
+        <tbody id="msgBody"></tbody>
+      </table></div>
+      <p class="note">Times are Pakistan time (PKT). You can delete your own messages; nobody else's.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="pwSec" style="display:none">
+  <h2>Change your password</h2>
+  <div class="card"><div class="row">
+    <label>Current password <input id="pwCur" type="password"></label>
+    <label>New password (min 8) <input id="pwNew" type="password"></label>
+    <button id="pwBtn">Change password</button>
+  </div><div id="pwMsg" class="note"></div></div>
+  <p class="note">Forgot your password? There is no email reset in this version — email the master admin (see the home page) and they will reset it for you.</p>
+</section>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let ME = null;
+let GRID = null;
+async function loadMe() {
+  const d = await (await fetch('/api/auth/me')).json();
+  if (!d.logged_in) {
+    $('meBox').innerHTML = 'You are not logged in. <a href="index.html">Log in or sign up</a> to see your district.';
+    return false;
+  }
+  ME = d.user;
+  if (ME.role === 'admin') {
+    $('meBox').innerHTML = 'You are logged in as an admin. <a href="admin.html">Open the admin portal →</a>';
+    return false;
+  }
+  $('meBox').innerHTML = 'Logged in as <b>' + esc(ME.gmail) + '</b> · ' + esc(ME.district) + ' · <button id="loBtn2" class="secondary">Log out</button>';
+  $('loBtn2').onclick = async () => { await fetch('/api/auth/logout', { method: 'POST' }); location.href = 'index.html'; };
+  $('pwSec').style.display = '';
+  $('myDistrict').textContent = ME.district;
+  $('dash').style.display = '';
+  return true;
+}
+async function loadGrids() {
+  const d = await (await fetch('/api/my/grids')).json();
+  if (d.error) { $('gridList').textContent = 'Error: ' + d.error; return; }
+  if (d.grids.length === 0) {
+    $('gridList').innerHTML = 'No grid station in ' + esc(d.district) + ' has a published schedule yet. Check back after the admin publishes one.';
+    return;
+  }
+  $('gridList').innerHTML = d.grids.map((g) => '<button class="secondary gridBtn" data-id="' + g.id + '">' + esc(g.name) + (g.is_example ? ' (EXAMPLE)' : '') + '</button>').join(' ');
+  document.querySelectorAll('.gridBtn').forEach((b) => { b.onclick = () => openGrid(Number(b.dataset.id)); });
+}
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// Times stored in the database are UTC (SQLite datetime('now')). People
+// here live on Pakistan time (UTC+5), so every displayed time is converted.
+function fmtPKT(s) {
+  if (!s) return '';
+  const d = new Date(String(s).replace(' ', 'T') + 'Z');
+  if (isNaN(d)) return String(s);
+  return d.toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+function nowStatus(schedule, latestMsg) {
+  // What is happening RIGHT NOW, from today's schedule rows (weekday =
+  // JS getDay(), Sunday=0, same as the server) plus the newest message.
+  const now = new Date();
+  const today = schedule.filter((r) => r.weekday === now.getDay());
+  const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  let line;
+  if (today.length === 0) {
+    line = 'No load-shedding scheduled for today (' + DAYS[now.getDay()] + ').';
+  } else {
+    const wins = today.flatMap((r) => r.windows).sort((a, b) => a.start.localeCompare(b.start));
+    const current = wins.find((w) => hhmm >= w.start && hhmm < w.end);
+    if (current) {
+      line = '⚡ Light is scheduled OFF right now — until ' + current.end + ' today.';
+    } else {
+      const next = wins.find((w) => hhmm < w.start);
+      line = next
+        ? 'Light is on now. Next scheduled off today: ' + next.start + '–' + next.end + '.'
+        : 'Light is on now. No more scheduled outages today.';
+    }
+  }
+  if (latestMsg) line += ' Latest from your grid: ' + (latestMsg.status === 'off' ? 'OFF' : 'ON') + ' at ' + fmtPKT(latestMsg.created_at) + '.';
+  return line;
+}
+async function openGrid(id) {
+  const s = await (await fetch('/api/my/grid/' + id + '/schedule')).json();
+  if (s.error) { $('gridList').textContent = 'Error: ' + s.error; return; }
+  GRID = s.grid;
+  $('gridName').textContent = GRID.name + ' — ' + GRID.district;
+  $('exampleBanner').style.display = GRID.is_example ? '' : 'none';
+  // Full week, Monday first: days with no published row show honestly
+  // as "No outage scheduled" instead of disappearing from the table.
+  const byDay = {};
+  s.schedule.forEach((r) => { byDay[r.weekday] = r; });
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  $('schBody').innerHTML = order.map((wd) => {
+    const r = byDay[wd];
+    return '<tr><td>' + DAYS[wd] + '</td><td>' + (r ? r.windows.map((w) => esc(w.start) + '–' + esc(w.end)).join(', ') : 'No outage scheduled') + '</td><td>' + esc(r ? (r.note || '') : '') + '</td></tr>';
+  }).join('');
+  $('gridDetail').style.display = '';
+  const m = await (await fetch('/api/my/grid/' + id + '/messages')).json();
+  $('nowBox').textContent = nowStatus(s.schedule, m.messages && m.messages[0] ? m.messages[0] : null);
+  loadMessages(id);
+}
+async function loadMessages(id) {
+  const d = await (await fetch('/api/my/grid/' + id + '/messages')).json();
+  if (d.error) { $('msgBody').innerHTML = '<tr><td colspan="4">Error: ' + esc(d.error) + '</td></tr>'; return; }
+  $('msgBody').innerHTML = d.messages.length === 0
+    ? '<tr><td colspan="4">No messages in this grid yet — be the first to post.</td></tr>'
+    : d.messages.map((m) => '<tr><td>' + esc(fmtPKT(m.created_at)) + '</td><td><span class="badge ' + (m.status === 'off' ? 'out' : 'restored') + '">' + esc(m.status === 'off' ? 'OFF' : 'ON') + '</span></td><td>' + esc(m.note || '') + '</td><td>' + (m.own ? '<button class="secondary delOwn" data-id="' + m.id + '">Delete</button>' : '') + '</td></tr>').join('');
+  document.querySelectorAll('.delOwn').forEach((b) => { b.onclick = async () => {
+    const r = await fetch('/api/my/message/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(b.dataset.id) }) });
+    const dd = await r.json();
+    if (r.ok) loadMessages(id); else alert('Error: ' + (dd.error || 'failed'));
+  }; });
+}
+$('msgBtn').onclick = async () => {
+  if (!GRID) return;
+  const body = { status: $('msgStatus').value, note: $('msgNote').value };
+  const r = await fetch('/api/my/grid/' + GRID.id + '/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('msgResult').textContent = r.ok ? 'Posted.' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) { $('msgNote').value = ''; loadMessages(GRID.id); }
+};
+$('pwBtn').onclick = async () => {
+  const r = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ current: $('pwCur').value, next: $('pwNew').value }) });
+  const d = await r.json();
+  $('pwMsg').textContent = r.ok ? 'Password changed.' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) { $('pwCur').value = ''; $('pwNew').value = ''; }
+};
+(async () => { if (await loadMe()) loadGrids(); })();
+</script>
+</body>
+</html>
