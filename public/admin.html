@@ -3,71 +3,247 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bijli Map — Admin</title>
+<title>Bijli Map — Admin portal</title>
+<link rel="icon" href="/favicon.ico">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="topbar">
   <div class="logo">⚡ Bijli Map — Admin</div>
-  <nav><a href="index.html">← Back to map</a></nav>
+  <nav><a href="index.html">← Back to site</a></nav>
 </header>
 
 <section class="section">
-  <h2>Admin panel</h2>
-  <p class="note">Admin gate is a simple shared code (demo-grade — see README). Use it to moderate community reports, add areas, and enter official schedules. Nothing here sends alerts or touches official DISCO systems.</p>
-  <div class="row">
-    <label>Admin code <input id="code" type="password" placeholder="default: bijli-admin"></label>
-    <button id="loadBtn">Load reports</button>
+  <h2>Admin portal</h2>
+  <p class="note">Government admins log in with the Gmail + password the master admin gave them. An admin publishes the official load-shedding schedule for <strong>their own grid only</strong> — never another district's. Admin accounts are created by the master admin only; there is no self-registration.</p>
+  <div id="meBox" class="note">Loading…</div>
+  <div class="card"><div class="row">
+    <label>Gmail <input id="liGmail" type="email" placeholder="admin gmail"></label>
+    <label>Password <input id="liPass" type="password"></label>
+    <button id="liBtn">Log in as admin</button>
+    <button id="loBtn" class="secondary">Log out</button>
+  </div><div id="liMsg" class="note"></div></div>
+</section>
+
+<section class="section" id="adminSec" style="display:none">
+  <h2>Your grid — <span id="adminGrid"></span></h2>
+  <h3>Publish / edit the official schedule</h3>
+  <p class="note">One row per weekday. Windows are the times the light is OFF, e.g. <code>08:00-10:00, 14:00-16:00</code>. Saving a weekday replaces its old windows.</p>
+  <div class="card"><div class="row">
+    <label>Day
+      <select id="schDay">
+        <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
+        <option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option>
+        <option value="0">Sunday</option>
+      </select>
+    </label>
+    <label>Off windows <input id="schWindows" placeholder="08:00-10:00, 14:00-16:00"></label>
+    <label>Note <input id="schNote" placeholder="e.g. official schedule"></label>
+    <button id="schSaveBtn">Save day</button>
+    <button id="schDelBtn" class="secondary">Delete day</button>
+  </div><div id="schMsg" class="note"></div></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Day</th><th>Off windows</th><th>Note</th><th>Updated</th></tr></thead>
+    <tbody id="schBody"></tbody>
+  </table></div>
+
+  <h3>Messages in your grid</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Time</th><th>Status</th><th>Note</th><th>Reporter</th><th></th></tr></thead>
+    <tbody id="msgBody"></tbody>
+  </table></div>
+</section>
+
+<section class="section">
+  <h2>Master console</h2>
+  <p class="note">Master admin only — enter the master code to create grid stations and admin accounts. The code is never stored in the browser beyond this page session.</p>
+  <div class="card"><div class="row">
+    <label>Master code <input id="masterCode" type="password" placeholder="master code"></label>
+    <button id="masterLoadBtn">Unlock console</button>
+  </div><div id="masterMsg" class="note"></div></div>
+
+  <div id="masterSec" style="display:none">
+    <h3>Create a grid station</h3>
+    <div class="card"><div class="row">
+      <label>District <input id="grDistrict" placeholder="e.g. Nowshera"></label>
+      <label>Grid name <input id="grName" placeholder="e.g. Nowshera Grid Station"></label>
+      <button id="grBtn">Create grid</button>
+    </div><div id="grMsg" class="note"></div></div>
+
+    <h3>Create an admin account</h3>
+    <p class="note">Create the grid first. The admin can then log in and publish schedules for that grid only. Give the Gmail + password to the government person privately — never post them here.</p>
+    <div class="card"><div class="row">
+      <label>Admin Gmail <input id="adGmail" type="email" placeholder="admin@gmail.com"></label>
+      <label>Password (min 8) <input id="adPass" type="password"></label>
+      <label>Grid <select id="adGrid"><option value="">— load grids first —</option></select></label>
+      <button id="adBtn">Create admin</button>
+    </div><div id="adMsg" class="note"></div></div>
+
+    <h3>Grids &amp; admins</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>District</th><th>Grid</th></tr></thead>
+      <tbody id="gridTable"></tbody>
+    </table></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Admin Gmail</th><th>District</th><th>Grid</th><th>Action</th></tr></thead>
+      <tbody id="adminTable"></tbody>
+    </table></div>
+
+    <h3>Registered users</h3>
+    <p class="note">Every public account (Gmail, role, district). Passwords are never shown — they are stored hashed and cannot be read back.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Gmail</th><th>Role</th><th>District</th><th>Created</th></tr></thead>
+      <tbody id="userTable"></tbody>
+    </table></div>
+
+    <h3>Reset a user's password</h3>
+    <p class="note">For a user who forgot their password (there is no email reset). Set a new temporary password, give it to them privately, and ask them to change it after logging in. Resetting ends all of their sessions.</p>
+    <div class="card"><div class="row">
+      <label>User Gmail <input id="rpGmail" type="email" placeholder="user@gmail.com"></label>
+      <label>New temporary password (min 8) <input id="rpPass" type="password"></label>
+      <button id="rpBtn">Reset password</button>
+    </div><div id="rpMsg" class="note"></div></div>
+
+    <h3>Audit log</h3>
+    <p class="note">Who published, edited or deleted what, and when.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>District</th><th>Detail</th></tr></thead>
+      <tbody id="auditBody"></tbody>
+    </table></div>
   </div>
-  <div id="adminMsg" class="note"></div>
 </section>
 
-<section class="section">
-  <h2>Moderate reports</h2>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>City / Area</th><th>Status</th><th>Note</th><th>Time</th><th>Flags</th><th>Action</th></tr></thead>
-      <tbody id="repBody"></tbody>
-    </table>
-  </div>
-</section>
-
-<section class="section">
-  <h2>District admins</h2>
-  <p class="note">Issue a private code for one city. Whoever holds that city's code can moderate ONLY that city's reports, from the <a href="district-admin.html">district admin page</a>. Codes are never shown back in the list below — keep them private when you issue them.</p>
-  <div class="card"><div class="row">
-    <label>City <input id="daCityNew" placeholder="e.g. Peshawar"></label>
-    <label>District code (private) <input id="daCodeNew" type="password" placeholder="e.g. peshawar-mod-2026"></label>
-    <button id="daCreateBtn">Set district code</button>
-    <button id="daListBtn" class="secondary">List cities with a code</button>
-  </div></div>
-  <div id="daList" class="note"></div>
-</section>
-
-<section class="section">
-  <h2>Add area</h2>
-  <div class="card"><div class="row">
-    <label>City <input id="newCity" placeholder="e.g. Lahore"></label>
-    <label>Area <input id="newArea" placeholder="e.g. Model Town"></label>
-    <label>DISCO <input id="newDisco" placeholder="e.g. LESCO"></label>
-    <label>Feeder <input id="newFeeder" placeholder="optional"></label>
-    <button id="addAreaBtn">Add area</button>
-  </div></div>
-</section>
-
-<section class="section">
-  <h2>Add official schedule</h2>
-  <p class="note">Enter the official scheduled load-shedding hours for an area, from the DISCO's published schedule. Mark clearly in the note if it is an example.</p>
-  <div class="card"><div class="row">
-    <label>Area ID <input id="schArea" type="number" placeholder="from the board (ask admin for IDs)"></label>
-    <label>Date <input id="schDate" type="date"></label>
-    <label>Scheduled hours (0–24) <input id="schHours" type="number" min="0" max="24" step="0.5"></label>
-    <label>Note <input id="schNote" placeholder="e.g. official schedule / EXAMPLE"></label>
-    <button id="addSchBtn">Save schedule</button>
-  </div></div>
-  <p class="note">Tip: open <a href="/api/board">/api/board</a> in a tab to see area IDs.</p>
-</section>
-
-<script src="admin.js"></script>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let ME = null;
+let GRID = null;
+let MASTER = '';
+// Times stored in the database are UTC (SQLite datetime('now')). People
+// here live on Pakistan time (UTC+5), so every displayed time is converted.
+function fmtPKT(s) {
+  if (!s) return '';
+  const d = new Date(String(s).replace(' ', 'T') + 'Z');
+  if (isNaN(d)) return String(s);
+  return d.toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+function masterHeaders() { return { 'X-Master-Code': MASTER }; }
+async function refreshMe() {
+  const d = await (await fetch('/api/auth/me')).json();
+  if (d.logged_in && d.user.role === 'admin') {
+    ME = d.user;
+    $('meBox').innerHTML = 'Logged in as admin <b>' + esc(ME.gmail) + '</b> · ' + esc(ME.district) + '.';
+    loadAdminGrid();
+  } else if (d.logged_in) {
+    $('meBox').innerHTML = 'You are logged in as a public user. Admins log in with an admin account — <a href="index.html">log out</a> first if this is the wrong account.';
+  } else {
+    $('meBox').textContent = 'Not logged in.';
+  }
+}
+$('liBtn').onclick = async () => {
+  const body = { gmail: $('liGmail').value, password: $('liPass').value };
+  const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('liMsg').textContent = r.ok ? (d.user.role === 'admin' ? 'Logged in as admin.' : 'That account is a public user, not an admin.') : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) refreshMe();
+};
+$('loBtn').onclick = async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  $('liMsg').textContent = 'Logged out.';
+  refreshMe();
+};
+function parseWindows(text) {
+  return text.split(',').map((p) => p.trim()).filter(Boolean).map((p) => {
+    const m = p.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const f = (h, mi) => String(h).padStart(2, '0') + ':' + mi;
+    return { start: f(m[1], m[2]), end: f(m[3], m[4]) };
+  });
+}
+async function loadAdminGrid() {
+  const d = await (await fetch('/api/admin/my-grid')).json();
+  if (d.error) { $('meBox').textContent = 'Error: ' + d.error; return; }
+  GRID = d.grid;
+  $('adminGrid').textContent = GRID.name + ' — ' + GRID.district;
+  $('adminSec').style.display = '';
+  $('schBody').innerHTML = d.schedule.length === 0
+    ? '<tr><td colspan="4">No schedule published yet.</td></tr>'
+    : d.schedule.map((r) => '<tr><td>' + esc(['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][r.weekday]) + '</td><td>' + JSON.parse(r.windows).map((w) => esc(w.start) + '–' + esc(w.end)).join(', ') + '</td><td>' + esc(r.note || '') + '</td><td>' + esc(fmtPKT(r.updated_at || '')) + '</td></tr>').join('');
+  $('msgBody').innerHTML = d.messages.length === 0
+    ? '<tr><td colspan="5">No messages in this grid yet.</td></tr>'
+    : d.messages.map((m) => '<tr><td>' + esc(fmtPKT(m.created_at)) + '</td><td><span class="badge ' + (m.status === 'off' ? 'out' : 'restored') + '">' + esc(m.status === 'off' ? 'OFF' : 'ON') + '</span></td><td>' + esc(m.note || '') + '</td><td>' + esc(m.reporter || '') + '</td><td><button class="secondary delMsg" data-id="' + m.id + '">Delete</button></td></tr>').join('');
+  document.querySelectorAll('.delMsg').forEach((b) => { b.onclick = async () => {
+    const r = await fetch('/api/admin/message/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(b.dataset.id) }) });
+    const dd = await r.json();
+    if (r.ok) loadAdminGrid(); else alert('Error: ' + (dd.error || 'failed'));
+  }; });
+}
+$('schSaveBtn').onclick = async () => {
+  if (!GRID) return;
+  const windows = parseWindows($('schWindows').value);
+  if (windows.includes(null) || windows.length === 0) { $('schMsg').textContent = 'Windows must look like 08:00-10:00, 14:00-16:00.'; return; }
+  const body = { grid_id: GRID.id, weekday: Number($('schDay').value), windows, note: $('schNote').value };
+  const r = await fetch('/api/admin/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('schMsg').textContent = r.ok ? 'Saved.' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) loadAdminGrid();
+};
+$('schDelBtn').onclick = async () => {
+  if (!GRID) return;
+  const body = { grid_id: GRID.id, weekday: Number($('schDay').value) };
+  const r = await fetch('/api/admin/schedule/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('schMsg').textContent = r.ok ? 'Deleted.' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) loadAdminGrid();
+};
+$('masterLoadBtn').onclick = async () => {
+  MASTER = $('masterCode').value;
+  const g = await (await fetch('/api/master/grids', { headers: masterHeaders() })).json();
+  if (g.error) { $('masterMsg').textContent = 'Error: ' + g.error; return; }
+  $('masterMsg').textContent = 'Console unlocked.';
+  $('masterSec').style.display = '';
+  $('gridTable').innerHTML = g.grids.map((x) => '<tr><td>' + esc(x.district) + '</td><td>' + esc(x.name) + '</td></tr>').join('');
+  $('adGrid').innerHTML = '<option value="">— select —</option>' + g.grids.map((x) => '<option value="' + x.id + '">' + esc(x.district) + ' — ' + esc(x.name) + '</option>').join('');
+  const a = await (await fetch('/api/master/admins', { headers: masterHeaders() })).json();
+  $('adminTable').innerHTML = a.admins.length === 0
+    ? '<tr><td colspan="4">No admin accounts yet.</td></tr>'
+    : a.admins.map((x) => '<tr><td>' + esc(x.gmail) + '</td><td>' + esc(x.district) + '</td><td>' + esc(x.grid_name || '') + '</td><td><button class="secondary delAdmin" data-gmail="' + esc(x.gmail) + '">Remove</button></td></tr>').join('');
+  document.querySelectorAll('.delAdmin').forEach((b) => { b.onclick = async () => {
+    const r = await fetch('/api/master/admin/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: MASTER, gmail: b.dataset.gmail }) });
+    const dd = await r.json();
+    if (r.ok) $('masterLoadBtn').onclick(); else alert('Error: ' + (dd.error || 'failed'));
+  }; });
+  const au = await (await fetch('/api/master/audit', { headers: masterHeaders() })).json();
+  $('auditBody').innerHTML = au.rows.length === 0
+    ? '<tr><td colspan="5">No actions logged yet.</td></tr>'
+    : au.rows.map((x) => '<tr><td>' + esc(fmtPKT(x.created_at)) + '</td><td>' + esc(x.actor_gmail) + '</td><td>' + esc(x.action) + '</td><td>' + esc(x.district) + '</td><td>' + esc(x.detail) + '</td></tr>').join('');
+  const us = await (await fetch('/api/master/users', { headers: masterHeaders() })).json();
+  $('userTable').innerHTML = us.users.length === 0
+    ? '<tr><td colspan="4">No users yet.</td></tr>'
+    : us.users.map((x) => '<tr><td>' + esc(x.gmail) + '</td><td>' + esc(x.role) + '</td><td>' + esc(x.district) + '</td><td>' + esc(fmtPKT(x.created_at)) + '</td></tr>').join('');
+};
+$('rpBtn').onclick = async () => {
+  const body = { code: MASTER, gmail: $('rpGmail').value, password: $('rpPass').value };
+  const r = await fetch('/api/master/user/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('rpMsg').textContent = r.ok ? 'Password reset. Give the new password to the user privately and ask them to change it after logging in.' : ('Error: ' + (d.error || 'failed'));
+};
+$('grBtn').onclick = async () => {
+  const body = { code: MASTER, district: $('grDistrict').value, name: $('grName').value };
+  const r = await fetch('/api/master/grid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('grMsg').textContent = r.ok ? 'Grid created (id ' + d.id + ').' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) $('masterLoadBtn').onclick();
+};
+$('adBtn').onclick = async () => {
+  const body = { code: MASTER, gmail: $('adGmail').value, password: $('adPass').value, grid_id: Number($('adGrid').value) };
+  const r = await fetch('/api/master/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  $('adMsg').textContent = r.ok ? 'Admin created for ' + d.district + '. Give the Gmail + password to the government person privately.' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) $('masterLoadBtn').onclick();
+};
+refreshMe();
+</script>
 </body>
 </html>
