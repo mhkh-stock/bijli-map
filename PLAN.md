@@ -45,3 +45,5 @@ Seed: DISCO directory + 5 EXAMPLE areas/schedules + 4 DEMO reports only.
 - Feeder directory: feeder names per area, from bills, crowdsourced.
 - Weekly area reliability report: scheduled vs actual per area per week,
   once report volume is real.
+
+Redeploy trigger 2026-11-05 ~20:05 PKT — SnapDeploy auto-deploy after limit reset.
