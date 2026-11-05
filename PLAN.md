@@ -167,3 +167,8 @@ signup rate limit (20/hour/IP); anonymous admin reporter; registered
 users table in the master console; expired-session pruning. Not
 pushed/deployed by this build step. Deploy limit: 3/5 used tonight
 (dashboard, 2026-11-05 ~21:11) — 2 deploys remain.
+
+## Deploy trigger 2026-11-05 ~21:35 PKT — v2.0 full HEAD
+The 7 v2.0 batches pushed ~21:25-21:27 were built as the FIRST batch's HEAD
+(districts.js 168 + old server.js): live /health 404s and district pages show
+old v1.2 text. This trigger starts a fresh deploy of the full v2.0 HEAD.
