@@ -187,3 +187,5 @@ old v1.2 text. This trigger starts a fresh deploy of the full v2.0 HEAD.
 
 ## Deploy record
 - 2026-11-06 ~10:00 PKT: v2.1 fail-closed code + LinkedIn thumbnail pushed to main; private ADMIN_CODE / SESSION_SECRET / CNIC_SECRET set as env vars on the SnapDeploy container (never in the repo).
+
+## 2026-11-06 — nav redesign live (Register + Log in buttons, designed kebab menu, role portals, Back to home)
