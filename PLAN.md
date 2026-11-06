@@ -172,3 +172,15 @@ pushed/deployed by this build step. Deploy limit: 3/5 used tonight
 The 7 v2.0 batches pushed ~21:25-21:27 were built as the FIRST batch's HEAD
 (districts.js 168 + old server.js): live /health 404s and district pages show
 old v1.2 text. This trigger starts a fresh deploy of the full v2.0 HEAD.
+
+## 2026-11-05 ~23:20 PKT — master code made private (fail-closed)
+- The hardcoded fallback default master code is gone from the repo: server.js
+  now reads `ADMIN_CODE` from the environment only and exits(1) with a FATAL
+  message if it is unset. No default exists anywhere in the code, tests, UI
+  or README. Anyone copying the project from GitHub gets no working code.
+- Tests use a test-only code via `TEST_ADMIN_CODE` env (default
+  `test-admin-code`, never a real value). SESSION_SECRET logic unchanged
+  (already random per startup when unset; CNIC_SECRET derives from it).
+- Verified: fail-closed run exits 1 with FATAL when unset, starts normally
+  when set; suite 103 checks ALL TESTS PASSED 2x. The real private code is
+  set only as an env var on the host (SnapDeploy) by Hashir — never in the repo.

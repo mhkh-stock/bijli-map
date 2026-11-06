@@ -1,5 +1,7 @@
 # Bijli Map — بجلی میپ — Pakistan Load-Shedding Schedules
 
+![Bijli Map — Load-shedding schedules for 168 districts across Pakistan](docs/linkedin-thumbnail.jpg)
+
 District-wise official load-shedding schedules for Pakistan, published by
 the government admin for each grid station — plus on/off messages from
 people in your own grid only. **Login-gated, role-based, district-scoped:
@@ -142,8 +144,9 @@ every person sees only their own district.**
 ## Stack (same as Mandi Price Intelligence)
 Node.js 24+, native `node:http` + `node:sqlite`, zero dependencies.
 Port 3031 (`PORT` env), SQLite file `data/bijli.sqlite` (`DB_FILE` env),
-WAL mode. Master code: `ADMIN_CODE` env (default `bijli-admin`, demo-grade
-— change it on deploy). Session secret: `SESSION_SECRET` env (set it on
+WAL mode. Master code: `ADMIN_CODE` env is REQUIRED — the app refuses
+to start without it. Set a long random value on your host; never commit
+it to the repo. Session secret: `SESSION_SECRET` env (set it on
 deploy so sessions survive restarts; without it a random secret is
 generated at startup and sessions end on restart).
 
@@ -183,7 +186,7 @@ Gaps found and fixed in this pass:
   Node default) and answers `GET /health` with no DB/auth. Verified the
   listen address in the suite via `/proc/net/tcp`.
 - **P0 — master code leaked in the UI:** the admin page's master-code
-  input placeholder said "default: bijli-admin". Removed.
+  input placeholder revealed the master code. Removed.
 - **P0 — master code in URLs:** master GET endpoints took `?code=` in
   the query string (browser history, server logs). Now `X-Master-Code`
   header only; query-string codes are rejected (403).
@@ -233,6 +236,6 @@ CNIC was registered elsewhere (manual-review fallback not built);
 no Google sign-in or SMS codes (needs external setup); no "log out
 everywhere"; no per-account "forgot password" email; example schedules
 are still samples, not real DISCO schedules — a government admin must
-publish the real ones. Deploy note: set `ADMIN_CODE` (never the public
-default) and `SESSION_SECRET` on the container, or sessions end on
+publish the real ones. Deploy note: set `ADMIN_CODE` (required — no
+default exists) and `SESSION_SECRET` on the container, or sessions end on
 every restart/redeploy.
