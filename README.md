@@ -239,3 +239,5 @@ are still samples, not real DISCO schedules — a government admin must
 publish the real ones. Deploy note: set `ADMIN_CODE` (required — no
 default exists) and `SESSION_SECRET` on the container, or sessions end on
 every restart/redeploy.
+
+<!-- nav deploy trigger 2026-11-06 22:15 PKT -->
