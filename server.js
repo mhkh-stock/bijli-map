@@ -29,7 +29,8 @@ const { cnicPrefixForDistrict } = require('./lib/cnic');
 const PORT = Number(process.env.PORT || 3031);
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data', 'bijli.sqlite');
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const ADMIN_CODE = process.env.ADMIN_CODE || 'bijli-admin';
+const ADMIN_CODE = process.env.ADMIN_CODE;
+if (!ADMIN_CODE) { console.error('FATAL: ADMIN_CODE env var is required — set a private code, there is no default.'); process.exit(1); }
 const HELPLINE = '118'; // national electricity complaint helpline (all DISCOs)
 // Session secret: set SESSION_SECRET on deploy so sessions survive
 // restarts. Without it a random secret is generated at startup and all
