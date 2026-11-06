@@ -421,6 +421,30 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
     check('admin page serves 200 with master console', adminPage.status === 200 && adminPage.text.includes('Master console'), adminPage.status);
     const daGone = await req('/district-admin.html');
     check('old district-admin page is gone (404)', daGone.status === 404, daGone.status);
+
+    // ---- header v2.1: Register + Log in buttons, designed kebab, portals ----
+    const navJs = await req('/nav.js');
+    check('nav.js serves 200 and wires the overflow menu', navJs.status === 200 && navJs.text.includes('overflowMenu') && navJs.text.includes("fetch('/api/auth/me'"), navJs.status);
+    check('homepage header: Register + Log in buttons, kebab menu button, no back button',
+      home.text.includes('>Register<') && home.text.includes('>Log in<') && home.text.includes('id="menuBtn"')
+      && home.text.includes('aria-haspopup="menu"') && home.text.includes('id="overflowMenu"')
+      && !home.text.includes('Back to home'), home.status);
+    const regPage = await req('/register.html');
+    check('register portal serves 200 with one option (Sign up as Member), no admin self-registration',
+      regPage.status === 200 && regPage.text.includes('Sign up as Member') && regPage.text.includes('Back to home')
+      && regPage.text.includes('master admin only') && !regPage.text.includes('Sign up as Admin'), regPage.status);
+    const loginPage = await req('/login.html');
+    check('login portal serves 200 with Member + Admin options and back button',
+      loginPage.status === 200 && loginPage.text.includes('Log in as Member') && loginPage.text.includes('Log in as Admin')
+      && loginPage.text.includes('Back to home'), loginPage.status);
+    check('district page header: Register + kebab + Back to home, login prompt still shown',
+      lp.text.includes('>Register<') && lp.text.includes('id="menuBtn"') && lp.text.includes('Back to home')
+      && lp.text.includes('Login required'), lp.status);
+    check('districts index header: kebab menu + Back to home button',
+      di.text.includes('id="menuBtn"') && di.text.includes('Back to home'), di.status);
+    check('dashboard + admin headers: kebab menu + Back to home button',
+      appPage.text.includes('id="menuBtn"') && appPage.text.includes('Back to home')
+      && adminPage.text.includes('id="menuBtn"') && adminPage.text.includes('Back to home'), appPage.status);
   } finally {
     child.kill();
   }
