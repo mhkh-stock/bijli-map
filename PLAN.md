@@ -184,3 +184,6 @@ old v1.2 text. This trigger starts a fresh deploy of the full v2.0 HEAD.
 - Verified: fail-closed run exits 1 with FATAL when unset, starts normally
   when set; suite 103 checks ALL TESTS PASSED 2x. The real private code is
   set only as an env var on the host (SnapDeploy) by Hashir — never in the repo.
+
+## Deploy record
+- 2026-11-06 ~10:00 PKT: v2.1 fail-closed code + LinkedIn thumbnail pushed to main; private ADMIN_CODE / SESSION_SECRET / CNIC_SECRET set as env vars on the SnapDeploy container (never in the repo).
