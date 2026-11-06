@@ -21,7 +21,7 @@ const PORT = 3041;
 const DB = '/tmp/bijli-v2-test.sqlite';
 for (const f of [DB, DB + '-shm', DB + '-wal']) { try { fs.unlinkSync(f); } catch {} }
 const BASE = `http://127.0.0.1:${PORT}`;
-const CODE = 'bijli-admin';
+const CODE = process.env.TEST_ADMIN_CODE || 'test-admin-code'; // test-only master code, never a real one
 const SECRET = 'test-secret-v2';
 let failures = 0;
 function check(name, cond, extra) {
@@ -55,7 +55,7 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
 
 (async () => {
   const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
-    env: { ...process.env, PORT: String(PORT), DB_FILE: DB, SESSION_SECRET: SECRET, LOGIN_LOCK_SECONDS: '3', SESSION_TTL_SECONDS: '86400' },
+    env: { ...process.env, PORT: String(PORT), DB_FILE: DB, ADMIN_CODE: CODE, SESSION_SECRET: SECRET, LOGIN_LOCK_SECONDS: '3', SESSION_TTL_SECONDS: '86400' },
     stdio: 'pipe',
   });
   let serverLog = '';
@@ -408,8 +408,8 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
       appHtml.text.includes("fetch('/api/auth/logout'") && appHtml.text.includes('delOwn') && appHtml.text.includes('exampleBanner')
       && appHtml.text.includes('nowBox') && appHtml.text.includes('Asia/Karachi') && appHtml.text.includes('Change your password'), appHtml.status);
     const adminHtml = await req('/admin.html');
-    check('admin page: no leaked default master code, header auth, users table, password reset, logout',
-      !adminHtml.text.includes('bijli-admin') && adminHtml.text.includes('X-Master-Code') && adminHtml.text.includes('Registered users')
+    check('admin page: no leaked master code, header auth, users table, password reset, logout',
+      !adminHtml.text.includes(CODE) && adminHtml.text.includes('X-Master-Code') && adminHtml.text.includes('Registered users')
       && adminHtml.text.includes('Reset a user') && adminHtml.text.includes("fetch('/api/auth/logout'"), adminHtml.status);
 
     // ---- pages serve ----
