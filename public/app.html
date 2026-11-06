@@ -8,10 +8,42 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="topbar">
+<header class="topbar" data-page="dashboard">
   <div class="logo">⚡ Bijli Map — My dashboard</div>
-  <nav><a href="index.html">Home</a><a href="/districts">All districts</a><a href="admin.html">Admin</a></nav>
+  <div class="topbar-actions">
+    <div class="primary-actions">
+      <a class="btn-primary" href="/register.html" data-auth="out">Register</a>
+      <a class="btn-ghost" href="/login.html" data-auth="out">Log in</a>
+      <a class="btn-primary" href="/app.html" data-auth="in" hidden>My district</a>
+      <button type="button" class="btn-ghost" data-logout data-auth="in" hidden>Log out</button>
+    </div>
+    <button class="kebab" id="menuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="overflowMenu" aria-label="Menu">⋮</button>
+    <div class="overflow-menu" id="overflowMenu" role="menu" hidden>
+      <div class="menu-group">
+        <div class="menu-heading">Browse</div>
+        <a role="menuitem" href="/districts">🗺️ All districts</a>
+        <a role="menuitem" href="/#discos">⚡ DISCO directory</a>
+        <a role="menuitem" href="/#about">ℹ️ About</a>
+      </div>
+      <div class="menu-group" data-auth="out">
+        <div class="menu-heading">Account</div>
+        <a role="menuitem" href="/register.html">✏️ Register</a>
+        <a role="menuitem" href="/login.html">🔑 Log in</a>
+      </div>
+      <div class="menu-group" data-auth="in" hidden>
+        <div class="menu-heading">Account</div>
+        <a role="menuitem" href="/app.html">🏠 My district</a>
+        <button type="button" role="menuitem" data-logout>🚪 Log out</button>
+      </div>
+      <div class="menu-group">
+        <div class="menu-heading">Admin</div>
+        <a role="menuitem" href="/admin.html">🛠️ Admin portal</a>
+      </div>
+    </div>
+  </div>
 </header>
+
+<div class="back-row"><a class="back-btn" href="index.html">← Back to home</a></div>
 
 <section class="section">
   <div id="meBox" class="note">Loading…</div>
@@ -61,6 +93,7 @@
   <p class="note">Forgot your password? There is no email reset in this version — email the master admin (see the home page) and they will reset it for you.</p>
 </section>
 
+<script src="nav.js"></script>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
