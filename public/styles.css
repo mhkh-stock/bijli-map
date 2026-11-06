@@ -2,11 +2,9 @@
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0a1424; color: #eaf0f8; line-height: 1.5; }
 a { color: #ffc93c; }
-.topbar { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; padding: 14px 22px; background: #07101f; border-bottom: 3px solid #ffc93c; }
+.topbar { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; padding: 14px 22px; background: #07101f; border-bottom: 3px solid #ffc93c; position: sticky; top: 0; z-index: 60; }
 .logo { font-size: 20px; font-weight: 700; }
 .logo .urdu { color: #ffc93c; font-size: 17px; }
-.topbar nav a { margin-left: 16px; text-decoration: none; font-weight: 600; }
-.topbar nav a:hover { text-decoration: underline; }
 .hero { padding: 34px 22px 26px; max-width: 1100px; margin: 0 auto; }
 .hero h1 { margin: 0 0 8px; font-size: 32px; }
 .hero p { color: #c3d0e2; max-width: 820px; }
@@ -43,3 +41,32 @@ code { background: #0a1424; border: 1px solid #33507e; border-radius: 4px; paddi
 ul { color: #c3d0e2; }
 .gridBtn { margin: 4px 6px 4px 0; }
 .status-now { background: #12233c; border: 1px solid #ffc93c; border-radius: 8px; padding: 12px 14px; font-size: 17px; font-weight: 600; margin: 12px 0; }
+
+/* v2.1 header — sticky, combo nav: visible primary actions + kebab (⋮) overflow menu.
+   Same header markup on every page; behaviour lives in nav.js. */
+.topbar-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; position: relative; }
+.primary-actions { display: flex; gap: 10px; align-items: center; }
+.btn-primary, .btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 16px; border-radius: 6px; font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.btn-primary { background: #ffc93c; color: #1a1200; border: 0; }
+.btn-primary:hover { background: #ffda6b; }
+.btn-ghost { background: transparent; color: #eaf0f8; border: 1px solid #33507e; }
+.btn-ghost:hover { background: #22385c; }
+.kebab { width: 44px; height: 44px; min-height: 44px; padding: 0; background: #12233c; color: #eaf0f8; border: 1px solid #33507e; border-radius: 50%; font-size: 22px; line-height: 1; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); }
+.kebab:hover { background: #22385c; border-color: #ffc93c; }
+.kebab:active { background: #1a2f52; }
+.kebab[aria-expanded="true"] { background: #22385c; border-color: #ffc93c; }
+.kebab:focus-visible { outline: 2px solid #ffc93c; outline-offset: 2px; }
+.overflow-menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 250px; background: #12233c; border: 1px solid #22385c; border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .5); padding: 8px; z-index: 70; }
+.overflow-menu[hidden] { display: none; }
+.menu-heading { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #9fb0c8; font-weight: 700; padding: 10px 12px 4px; }
+.overflow-menu a, .overflow-menu button[role="menuitem"] { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 12px; border-radius: 6px; color: #eaf0f8; text-decoration: none; font-weight: 600; font-size: 15px; width: 100%; background: none; border: 0; text-align: left; cursor: pointer; }
+.overflow-menu a:hover, .overflow-menu button[role="menuitem"]:hover { background: #22385c; }
+.overflow-menu a[aria-current="page"] { text-decoration: underline; }
+/* Portal pages (register/login): option cards stacked with a gap. */
+.stack { display: grid; gap: 12px; }
+/* Sub-pages: a visible back button at the top of the content (iOS-style back, not a menu button). */
+.back-row { max-width: 1100px; margin: 0 auto; padding: 14px 22px 0; }
+.back-btn { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 16px; border: 1px solid #33507e; border-radius: 6px; background: #12233c; color: #eaf0f8; text-decoration: none; font-weight: 700; }
+.back-btn:hover { background: #22385c; }
+[hidden] { display: none !important; }
+@media (max-width: 640px) { .logo { font-size: 17px; } .logo .urdu { font-size: 15px; } .btn-primary, .btn-ghost { padding: 10px 12px; font-size: 14px; } }

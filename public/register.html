@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bijli Map — Register</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar" data-page="register">
+  <div class="logo">⚡ Bijli Map <span class="urdu">بجلی میپ</span></div>
+  <div class="topbar-actions">
+    <div class="primary-actions">
+      <a class="btn-primary" href="/register.html" data-auth="out">Register</a>
+      <a class="btn-ghost" href="/login.html" data-auth="out">Log in</a>
+      <a class="btn-primary" href="/app.html" data-auth="in" hidden>My district</a>
+      <button type="button" class="btn-ghost" data-logout data-auth="in" hidden>Log out</button>
+    </div>
+    <button class="kebab" id="menuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="overflowMenu" aria-label="Menu">⋮</button>
+    <div class="overflow-menu" id="overflowMenu" role="menu" hidden>
+      <div class="menu-group">
+        <div class="menu-heading">Browse</div>
+        <a role="menuitem" href="/districts">🗺️ All districts</a>
+        <a role="menuitem" href="/#discos">⚡ DISCO directory</a>
+        <a role="menuitem" href="/#about">ℹ️ About</a>
+      </div>
+      <div class="menu-group" data-auth="out">
+        <div class="menu-heading">Account</div>
+        <a role="menuitem" href="/register.html">✏️ Register</a>
+        <a role="menuitem" href="/login.html">🔑 Log in</a>
+      </div>
+      <div class="menu-group" data-auth="in" hidden>
+        <div class="menu-heading">Account</div>
+        <a role="menuitem" href="/app.html">🏠 My district</a>
+        <button type="button" role="menuitem" data-logout>🚪 Log out</button>
+      </div>
+      <div class="menu-group">
+        <div class="menu-heading">Admin</div>
+        <a role="menuitem" href="/admin.html">🛠️ Admin portal</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="back-row"><a class="back-btn" href="index.html">← Back to home</a></div>
+
+<section class="section">
+  <h2>Register</h2>
+  <p class="note">Create your account to see your own district's load-shedding schedule and on/off messages.</p>
+  <div class="stack">
+    <div class="card">
+      <h3>Sign up as Member</h3>
+      <p class="note">Public account with Gmail, password and CNIC — your CNIC district must match the district you pick.</p>
+      <a class="btn-primary" href="/#signup">Sign up as Member →</a>
+    </div>
+  </div>
+  <p class="note">Government admin accounts are created by the master admin only — there is no admin sign-up here. To request an admin account for your grid, email <a href="mailto:mhkh3200@gmail.com">mhkh3200@gmail.com</a>.</p>
+</section>
+
+<script src="nav.js"></script>
+</body>
+</html>
