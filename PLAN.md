@@ -189,3 +189,40 @@ old v1.2 text. This trigger starts a fresh deploy of the full v2.0 HEAD.
 - 2026-11-06 ~10:00 PKT: v2.1 fail-closed code + LinkedIn thumbnail pushed to main; private ADMIN_CODE / SESSION_SECRET / CNIC_SECRET set as env vars on the SnapDeploy container (never in the repo).
 
 ## 2026-11-06 — nav redesign live (Register + Log in buttons, designed kebab menu, role portals, Back to home)
+
+## 2026-11-07 — full review (coordinator-ordered, local only, NOT pushed)
+Suite was green at the start (110/110) and is green after the fixes
+(118/118). Fixes + small improvements, all local:
+- **P0 data — Zhob was missing, Lehri was stale:** `lib/districts.js`
+  listed "Lehri" (abolished as a district in 2018) and had no "Zhob",
+  while `lib/cnic.js` already carried Zhob 565 VERIFIED — so the
+  "76 verified" claim was only 75 in practice and Zhob residents got
+  "district not found". Swapped Lehri → Zhob (counts unchanged: 168
+  total, Balochistan 36, verified truly 76, unverified 92 — README's
+  "94" was also wrong arithmetic and is fixed). Mandi's list is the
+  upstream source and needs the same check.
+- **P1 security — change-password kept other sessions alive:** now
+  deletes all of the user's sessions and issues a fresh cookie to the
+  browser that changed the password (same as the master reset).
+- **P2 robustness — oversize request bodies hung:** `readBody` used
+  to `req.destroy()` (>200KB), which killed the socket before any
+  response — client saw ECONNRESET. Now it stops accumulating, answers
+  400, and drains the rest.
+- **P1 correctness — dashboard "right now" used the device clock:**
+  `nowStatus` now computes Pakistan time via Intl (Asia/Karachi), so
+  the status is right for any device timezone; it also shows today's
+  total scheduled off-time.
+- **P2 UX:** provinces in the signup dropdown now follow the site's
+  order; the signup form shows the district's expected CNIC prefix
+  (`cnic_prefix` added to `/api/districts`) before submitting; the
+  admin portal gains the missing change-password form and a Remove
+  button per grid in the master console (the APIs already existed);
+  the open grid's button is highlighted on the dashboard.
+- **P3:** master grid-create no longer writes an audit entry when the
+  grid already existed; dead empty `role` block removed from signup.
+- NOT changed: session cookie has no `Secure` flag (would risk breaking
+  plain-HTTP local/dev access; needs a deploy-time decision); no CNIC
+  check-digit validation (algorithm unverified — a wrong check would
+  lock out real users); no master grid-reassignment UI for orphaned
+  admins (remove + recreate covers it); no Google sign-in / SMS (needs
+  external setup, as documented).

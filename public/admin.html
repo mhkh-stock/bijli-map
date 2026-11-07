@@ -84,6 +84,14 @@
     <thead><tr><th>Time</th><th>Status</th><th>Note</th><th>Reporter</th><th></th></tr></thead>
     <tbody id="msgBody"></tbody>
   </table></div>
+
+  <h3>Change your password</h3>
+  <p class="note">Changing your password ends your sessions on other devices — this browser stays logged in.</p>
+  <div class="card"><div class="row">
+    <label>Current password <input id="pwCur" type="password"></label>
+    <label>New password (min 8) <input id="pwNew" type="password"></label>
+    <button id="pwBtn">Change password</button>
+  </div><div id="pwMsg" class="note"></div></div>
 </section>
 
 <section class="section">
@@ -112,8 +120,9 @@
     </div><div id="adMsg" class="note"></div></div>
 
     <h3>Grids &amp; admins</h3>
+    <p class="note">Removing a grid also deletes its schedules and messages, and unassigns its admin — use it only for a grid that was created by mistake.</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>District</th><th>Grid</th></tr></thead>
+      <thead><tr><th>District</th><th>Grid</th><th></th></tr></thead>
       <tbody id="gridTable"></tbody>
     </table></div>
     <div class="table-wrap"><table>
@@ -236,7 +245,13 @@ $('masterLoadBtn').onclick = async () => {
   if (g.error) { $('masterMsg').textContent = 'Error: ' + g.error; return; }
   $('masterMsg').textContent = 'Console unlocked.';
   $('masterSec').style.display = '';
-  $('gridTable').innerHTML = g.grids.map((x) => '<tr><td>' + esc(x.district) + '</td><td>' + esc(x.name) + '</td></tr>').join('');
+  $('gridTable').innerHTML = g.grids.map((x) => '<tr><td>' + esc(x.district) + '</td><td>' + esc(x.name) + (x.is_example ? ' <span class="badge example">EXAMPLE</span>' : '') + '</td><td><button class="secondary delGrid" data-id="' + x.id + '">Remove</button></td></tr>').join('');
+  document.querySelectorAll('.delGrid').forEach((b) => { b.onclick = async () => {
+    if (!confirm('Remove this grid? Its schedules and messages will be deleted, and its admin unassigned.')) return;
+    const r = await fetch('/api/master/grid/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: MASTER, grid_id: Number(b.dataset.id) }) });
+    const dd = await r.json();
+    if (r.ok) $('masterLoadBtn').onclick(); else alert('Error: ' + (dd.error || 'failed'));
+  }; });
   $('adGrid').innerHTML = '<option value="">— select —</option>' + g.grids.map((x) => '<option value="' + x.id + '">' + esc(x.district) + ' — ' + esc(x.name) + '</option>').join('');
   const a = await (await fetch('/api/master/admins', { headers: masterHeaders() })).json();
   $('adminTable').innerHTML = a.admins.length === 0
@@ -255,6 +270,12 @@ $('masterLoadBtn').onclick = async () => {
   $('userTable').innerHTML = us.users.length === 0
     ? '<tr><td colspan="4">No users yet.</td></tr>'
     : us.users.map((x) => '<tr><td>' + esc(x.gmail) + '</td><td>' + esc(x.role) + '</td><td>' + esc(x.district) + '</td><td>' + esc(fmtPKT(x.created_at)) + '</td></tr>').join('');
+};
+$('pwBtn').onclick = async () => {
+  const r = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ current: $('pwCur').value, next: $('pwNew').value }) });
+  const d = await r.json();
+  $('pwMsg').textContent = r.ok ? 'Password changed. Your other sessions have ended.' : ('Error: ' + (d.error || 'failed'));
+  if (r.ok) { $('pwCur').value = ''; $('pwNew').value = ''; }
 };
 $('rpBtn').onclick = async () => {
   const body = { code: MASTER, gmail: $('rpGmail').value, password: $('rpPass').value };

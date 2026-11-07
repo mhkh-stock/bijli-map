@@ -355,9 +355,19 @@ function sendJson(res, code, obj, extraHeaders) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', (c) => { data += c; if (data.length > 200000) req.destroy(); });
-    req.on('end', () => { try { resolve(data ? JSON.parse(data) : {}); } catch { resolve(null); } });
-    req.on('error', reject);
+    let done = false;
+    // Oversize bodies used to hang: the old code called req.destroy(),
+    // which kills the socket — so no 400 could ever be sent back and
+    // the client saw ECONNRESET. Instead, stop accumulating (memory
+    // stays capped), resolve null so the caller answers 400, and let
+    // the remaining upload drain harmlessly through this listener.
+    req.on('data', (c) => {
+      if (done) return;
+      data += c;
+      if (data.length > 200000) { done = true; resolve(null); }
+    });
+    req.on('end', () => { if (done) return; done = true; try { resolve(data ? JSON.parse(data) : {}); } catch { resolve(null); } });
+    req.on('error', (e) => { if (!done) { done = true; reject(e); } });
   });
 }
 function escHtml(s) {
@@ -526,6 +536,12 @@ const server = http.createServer(async (req, res) => {
         // district code must be verified first. Unverified districts are
         // listed (so people can find them) but cannot be claimed yet.
         cnic_verified: !!cnicPrefixForDistrict(d.name),
+        // The district's verified 3-digit CNIC prefix (null when
+        // unverified), so the signup form can tell the person BEFORE
+        // they submit what their CNIC must start with. The prefix is
+        // not a secret: it is the district's public code, and the check
+        // itself is a format check, not identity verification.
+        cnic_prefix: cnicPrefixForDistrict(d.name),
       }));
       const per_province = PROVINCE_ORDER.map((prov) => ({
         name: prov, districts: list.filter((d) => d.province === prov).length,
@@ -553,10 +569,9 @@ const server = http.createServer(async (req, res) => {
       if (password.length < 8) return sendJson(res, 400, { error: 'password must be at least 8 characters' });
       if (phone && !/^[0-9+][0-9 ()-]{9,18}$/.test(phone)) return sendJson(res, 400, { error: 'phone number looks invalid' });
       if (cnic.length !== 13) return sendJson(res, 400, { error: 'CNIC must be 13 digits (e.g. 17301-1234567-1)' });
-      if (body.role && body.role !== 'user') {
-        // Role is never chosen at signup: everyone signs up as a public
-        // user. Admin accounts are created by the master admin only.
-      }
+      // Role is never chosen at signup: everyone signs up as a public
+      // user (the INSERT below hardcodes 'user'). Admin accounts are
+      // created by the master admin only.
       const drow = districtRow(districtName);
       if (!drow) return sendJson(res, 400, { error: 'district not found' });
       if (provinceName && provinceName.toLowerCase() !== drow.province.toLowerCase()) {
@@ -634,8 +649,15 @@ const server = http.createServer(async (req, res) => {
       if (body.next.length < 8) return sendJson(res, 400, { error: 'new password must be at least 8 characters' });
       if (body.next === body.current) return sendJson(res, 400, { error: 'new password must be different from the current one' });
       db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(body.next), u.id);
+      // A password is usually changed because the old one is no longer
+      // trusted — so every other session dies with it (the master reset
+      // already did this; change-password did not, leaving a stolen
+      // session valid for up to 24h). This browser stays logged in: it
+      // gets a fresh session cookie in the response.
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
+      const cookie = setSessionCookie(res, u);
       audit('password.change', u, u.grid_id || null, u.district, 'password changed');
-      return sendJson(res, 200, { ok: true });
+      return sendJson(res, 200, { ok: true }, { 'Set-Cookie': cookie });
     }
 
     // ---- logged-in public user: own district only ----
@@ -781,7 +803,10 @@ const server = http.createServer(async (req, res) => {
       if (!name) return sendJson(res, 400, { error: 'name must not be empty' });
       const row = db.prepare('INSERT OR IGNORE INTO grids(district, name) VALUES(?,?)').run(drow.name, name);
       const grid = db.prepare('SELECT id, district, name FROM grids WHERE district = ? AND name = ?').get(drow.name, name);
-      audit('grid.create', null, grid.id, drow.name, name);
+      // INSERT OR IGNORE silently does nothing for a grid that already
+      // exists — log the audit entry only when one was actually created,
+      // or the log claims creates that never happened.
+      if (Number(row.changes) === 1) audit('grid.create', null, grid.id, drow.name, name);
       return sendJson(res, 200, { ok: true, id: grid.id, created: Number(row.changes) === 1 });
     }
     if (p === '/api/master/grid/remove' && req.method === 'POST') {

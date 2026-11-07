@@ -137,17 +137,33 @@ function fmtPKT(s) {
   if (isNaN(d)) return String(s);
   return d.toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 }
+function pktNow() {
+  // The schedule's windows are Pakistan wall-clock times, so "right
+  // now" must be Pakistan time too — the old code used the device's
+  // local clock (new Date().getHours()), which is wrong for anyone
+  // whose phone or laptop is set to another timezone.
+  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi', weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = {};
+  for (const p of fmt.formatToParts(new Date())) parts[p.type] = p.value;
+  let hour = parts.hour === '24' ? '00' : parts.hour; // midnight edge in some engines
+  return { weekday: DAYS.indexOf(parts.weekday), hhmm: hour + ':' + parts.minute };
+}
+function fmtDur(mins) {
+  const h = Math.floor(mins / 60); const m = mins % 60;
+  return h > 0 ? (m > 0 ? h + 'h ' + m + 'm' : h + 'h') : m + 'm';
+}
 function nowStatus(schedule, latestMsg) {
   // What is happening RIGHT NOW, from today's schedule rows (weekday =
-  // JS getDay(), Sunday=0, same as the server) plus the newest message.
-  const now = new Date();
-  const today = schedule.filter((r) => r.weekday === now.getDay());
-  const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  // PKT weekday, Sunday=0, same as the server) plus the newest message.
+  const now = pktNow();
+  const today = schedule.filter((r) => r.weekday === now.weekday);
+  const hhmm = now.hhmm;
   let line;
   if (today.length === 0) {
-    line = 'No load-shedding scheduled for today (' + DAYS[now.getDay()] + ').';
+    line = 'No load-shedding scheduled for today (' + DAYS[now.weekday] + ').';
   } else {
     const wins = today.flatMap((r) => r.windows).sort((a, b) => a.start.localeCompare(b.start));
+    const totalMins = wins.reduce((s, w) => s + ((parseInt(w.end.slice(0, 2), 10) * 60 + parseInt(w.end.slice(3), 10)) - (parseInt(w.start.slice(0, 2), 10) * 60 + parseInt(w.start.slice(3), 10))), 0);
     const current = wins.find((w) => hhmm >= w.start && hhmm < w.end);
     if (current) {
       line = '⚡ Light is scheduled OFF right now — until ' + current.end + ' today.';
@@ -157,6 +173,7 @@ function nowStatus(schedule, latestMsg) {
         ? 'Light is on now. Next scheduled off today: ' + next.start + '–' + next.end + '.'
         : 'Light is on now. No more scheduled outages today.';
     }
+    line += ' Today\'s total scheduled off-time: ' + fmtDur(totalMins) + '.';
   }
   if (latestMsg) line += ' Latest from your grid: ' + (latestMsg.status === 'off' ? 'OFF' : 'ON') + ' at ' + fmtPKT(latestMsg.created_at) + '.';
   return line;
@@ -165,6 +182,9 @@ async function openGrid(id) {
   const s = await (await fetch('/api/my/grid/' + id + '/schedule')).json();
   if (s.error) { $('gridList').textContent = 'Error: ' + s.error; return; }
   GRID = s.grid;
+  // Mark the open grid's button so the person can see which grid they
+  // are looking at (with several grids in a district, nothing showed it).
+  document.querySelectorAll('.gridBtn').forEach((b) => { b.classList.toggle('active', Number(b.dataset.id) === id); });
   $('gridName').textContent = GRID.name + ' — ' + GRID.district;
   $('exampleBanner').style.display = GRID.is_example ? '' : 'none';
   // Full week, Monday first: days with no published row show honestly

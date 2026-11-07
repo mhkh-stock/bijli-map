@@ -40,6 +40,7 @@ ol li { margin: 6px 0; }
 code { background: #0a1424; border: 1px solid #33507e; border-radius: 4px; padding: 1px 6px; }
 ul { color: #c3d0e2; }
 .gridBtn { margin: 4px 6px 4px 0; }
+.gridBtn.active { background: #ffc93c; color: #1a1200; }
 .status-now { background: #12233c; border: 1px solid #ffc93c; border-radius: 8px; padding: 12px 14px; font-size: 17px; font-weight: 600; margin: 12px 0; }
 
 /* v2.1 header — sticky, combo nav: visible primary actions + kebab (⋮) overflow menu.

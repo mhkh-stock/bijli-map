@@ -138,6 +138,14 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
     check('api/districts: cnic_verified flag — Peshawar true, Gilgit false',
       apiD.districts.find((d) => d.name === 'Peshawar').cnic_verified === true
       && apiD.districts.find((d) => d.name === 'Gilgit').cnic_verified === false, null);
+    check('api/districts: 76 districts CNIC-verified — Zhob (565) present, abolished Lehri gone, 92 unverified',
+      apiD.districts.filter((d) => d.cnic_verified).length === 76
+      && apiD.districts.find((d) => d.name === 'Zhob').cnic_verified === true
+      && apiD.districts.find((d) => d.name === 'Zhob').cnic_prefix === '565'
+      && !apiD.districts.some((d) => d.name === 'Lehri'), apiD.districts.filter((d) => d.cnic_verified).length);
+    check('api/districts: cnic_prefix exposed — Peshawar 173, Gilgit null (unverified)',
+      apiD.districts.find((d) => d.name === 'Peshawar').cnic_prefix === '173'
+      && apiD.districts.find((d) => d.name === 'Gilgit').cnic_prefix === null, null);
     const districtSlugs = apiD.districts.map((d) => d.slug);
     check('api/districts: 168 unique slugs', new Set(districtSlugs).size === 168, districtSlugs.length);
     const indexSlugs = new Set([...di.text.matchAll(/href="\/district\/([^"]+)"/g)].map((m) => m[1]));
@@ -251,6 +259,14 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
       const after = (await req('/api/auth/me', {}, jar)).json;
       check('logout ends the session', before.logged_in === true && after.logged_in === false, { before: before.logged_in, after: after.logged_in });
     }
+    // Oversize bodies used to hang the connection (readBody destroyed the
+    // stream but never resolved) — the server must answer 400 instead.
+    {
+      const big = 'x'.repeat(250000);
+      const r = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gmail: 'peshawar.user@gmail.com', password: big }) });
+      await r.text();
+      check('oversized request body (>200KB) gets a 400 instead of hanging', r.status === 400, r.status);
+    }
 
     // ---- scoping: users see only their own district ----
     const anon = await req('/api/my/grids');
@@ -361,8 +377,17 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
     check('change password rejects wrong current password', chgWrong.status === 401, chgWrong.json);
     const chgShort = await post('/api/auth/change-password', { current: 'password123', next: 'short' }, jar1);
     check('change password rejects short new password', chgShort.status === 400, chgShort.json);
+    // The session cookie in use right before the change: it must die
+    // with the old password, while this browser stays logged in on a
+    // fresh cookie issued by the change-password response.
+    const preChangeCookie = jar1.cookie;
     const chgOk = await post('/api/auth/change-password', { current: 'password123', next: 'newpassword123' }, jar1);
     check('change password works', chgOk.status === 200, chgOk.json);
+    const staleJar = { cookie: preChangeCookie };
+    const staleMe = (await req('/api/auth/me', {}, staleJar)).json;
+    check('change password ends other sessions (pre-change cookie rejected)', staleMe.logged_in === false, staleMe);
+    const freshMe = (await req('/api/auth/me', {}, jar1)).json;
+    check('change password keeps the current browser logged in (fresh cookie works)', freshMe.logged_in === true, freshMe);
     const oldPassLogin = await post('/api/auth/login', { gmail: 'peshawar.user@gmail.com', password: 'password123' });
     check('old password stops working after change', oldPassLogin.status === 401, oldPassLogin.json);
     const newPassLogin = await post('/api/auth/login', { gmail: 'peshawar.user@gmail.com', password: 'newpassword123' }, jar1);
@@ -403,14 +428,22 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
     const home2 = await req('/');
     check('homepage: fixed typo (Aapke), About section, contact email, 168 districts',
       home2.text.includes('Aapke district') && home2.text.includes('About Bijli Map') && home2.text.includes('mhkh3200@gmail.com') && home2.text.includes('All 168 districts'), home2.status);
+    check('homepage: signup shows the district CNIC prefix hint before submitting',
+      home2.text.includes('cnic_prefix') && home2.text.includes('must start with those 3 digits'), home2.status);
     const appHtml = await req('/app.html');
     check('dashboard: real logout, own-delete, EXAMPLE banner, now-status, PKT times, change-password form',
       appHtml.text.includes("fetch('/api/auth/logout'") && appHtml.text.includes('delOwn') && appHtml.text.includes('exampleBanner')
       && appHtml.text.includes('nowBox') && appHtml.text.includes('Asia/Karachi') && appHtml.text.includes('Change your password'), appHtml.status);
+    check('dashboard: now-status uses Pakistan time (pktNow, not the device clock), shows today total off-time, marks the open grid',
+      appHtml.text.includes('pktNow') && appHtml.text.includes("timeZone: 'Asia/Karachi'") && appHtml.text.includes('total scheduled off-time')
+      && appHtml.text.includes("classList.toggle('active'"), appHtml.status);
     const adminHtml = await req('/admin.html');
     check('admin page: no leaked master code, header auth, users table, password reset, logout',
       !adminHtml.text.includes(CODE) && adminHtml.text.includes('X-Master-Code') && adminHtml.text.includes('Registered users')
       && adminHtml.text.includes('Reset a user') && adminHtml.text.includes("fetch('/api/auth/logout'"), adminHtml.status);
+    check('admin page: change-password form for admins + grid Remove buttons in the master console',
+      adminHtml.text.includes('Change your password') && adminHtml.text.includes("fetch('/api/auth/change-password'")
+      && adminHtml.text.includes('delGrid') && adminHtml.text.includes('/api/master/grid/remove'), adminHtml.status);
 
     // ---- pages serve ----
     const home = await req('/');

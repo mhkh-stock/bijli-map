@@ -100,7 +100,7 @@ every person sees only their own district.**
   prefixes sharing the same first 3 digits (Peshawar 17301, 17302…;
   Lahore 35200, 35201, 35202…). A strict first-5 check would lock out
   most legitimate users.
-- **Fail closed:** districts with no verified prefix (94 of 168 —
+- **Fail closed:** districts with no verified prefix (92 of 168 —
   including all of Gilgit-Baltistan and AJK, most ex-FATA districts, and
   new split districts) cannot be claimed by CNIC check until their prefix
   is verified. Never guess a prefix.
@@ -153,7 +153,7 @@ generated at startup and sessions end on restart).
 ## Run
 ```sh
 node server.js          # http://127.0.0.1:3031
-node test.js            # 80 checks on a fresh DB (all must pass)
+node test.js            # 118 checks on a fresh DB (all must pass)
 ```
 
 ## Honest limits

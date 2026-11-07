@@ -124,7 +124,10 @@ let DISTRICTS = [];
 async function loadDistricts() {
   const d = await (await fetch('/api/districts')).json();
   DISTRICTS = d.districts;
-  const provs = [...new Set(DISTRICTS.map((x) => x.province))];
+  // Provinces in the site's own order (Punjab, KPK, Sindh, …), not in
+  // whatever order the alphabetically-sorted district list happens to
+  // surface them — /api/districts already returns per_province that way.
+  const provs = (d.per_province || []).map((p) => p.name);
   $('suProvince').innerHTML = '<option value="">— select —</option>' + provs.map((p) => '<option>' + esc(p) + '</option>').join('');
 }
 $('suProvince').onchange = () => {
@@ -140,6 +143,19 @@ $('suProvince').onchange = () => {
   $('districtNote').textContent = pending > 0
     ? pending + ' district(s) in this province cannot be signed up for yet — their CNIC district code is still being verified.'
     : '';
+};
+$('suDistrict').onchange = () => {
+  // Tell the person up front what their CNIC must start with for the
+  // district they picked, instead of letting them fill the whole form
+  // and only learning of a mismatch from the error after submitting.
+  const d = DISTRICTS.find((x) => x.name === $('suDistrict').value);
+  if (d && d.cnic_verified && d.cnic_prefix) {
+    $('districtNote').textContent = d.name + ' CNICs start with ' + d.cnic_prefix + ' — your CNIC must start with those 3 digits. (This is a format check only, not NADRA verification.)';
+  } else if (d && !d.cnic_verified) {
+    $('districtNote').textContent = 'Signups for ' + d.name + ' are not open yet — its CNIC district code is still being verified.';
+  } else {
+    $('districtNote').textContent = '';
+  }
 };
 async function loadDiscos() {
   const d = await (await fetch('/api/discos')).json();
