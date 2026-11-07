@@ -153,7 +153,7 @@ generated at startup and sessions end on restart).
 ## Run
 ```sh
 node server.js          # http://127.0.0.1:3031
-node test.js            # 118 checks on a fresh DB (all must pass)
+node test.js            # 128 checks on a fresh DB (all must pass)
 ```
 
 ## Honest limits
@@ -176,7 +176,7 @@ Every journey walked as a real user on a live local server (fresh DB +
 copy of the live DB): Peshawar signup → login → grid → schedule → post
 "power off" → logout → login again; Nowshera user; unverified-district
 (Gilgit) user; master → grid + admin → publish → edit → delete →
-cross-grid 403; logged-out visitor; security spot-checks. **103/103
+cross-grid 403; logged-out visitor; security spot-checks. **128/128
 checks pass** (suite run green 3 times) plus a 3-minute fresh-DB soak
 (server stays up, serves `/`, `/health`, `/api/meta`, district pages).
 Gaps found and fixed in this pass:
