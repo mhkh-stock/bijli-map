@@ -54,6 +54,36 @@ async function waitReady() {
 function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data).digest('hex'); }
 
 (async () => {
+  // ---- /tmp writable DB fallback helper (lib/dbPath.js) ----
+  // No server needed: the helper is pure path logic. The app dir is used
+  // as-is when writable; when it is missing or read-only the database
+  // falls back to /tmp/bijli-map (FoodScope pattern); DB_FILE env wins.
+  {
+    const os = require('node:os');
+    const { writableBase, resolveDbFile } = require('./lib/dbPath');
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bijli-dbpath-'));
+    try {
+      check('db fallback: writable app dir is used as-is', writableBase(tmpRoot) === tmpRoot, writableBase(tmpRoot));
+      check('db fallback: DB_FILE env override wins over any dir', resolveDbFile(tmpRoot, '/tmp/custom.sqlite') === '/tmp/custom.sqlite');
+      check('db fallback: default DB lives under the app dir when writable',
+        resolveDbFile(tmpRoot, '') === path.join(tmpRoot, 'data', 'bijli.sqlite'));
+      const missing = path.join(tmpRoot, 'does-not-exist');
+      check('db fallback: missing app dir falls back to /tmp/bijli-map', writableBase(missing) === path.join(os.tmpdir(), 'bijli-map'));
+      check('db fallback: default DB falls back under /tmp/bijli-map when app dir is unusable',
+        resolveDbFile(missing, '') === path.join(os.tmpdir(), 'bijli-map', 'data', 'bijli.sqlite'));
+      if (process.getuid && process.getuid() !== 0) {
+        const ro = path.join(tmpRoot, 'ro');
+        fs.mkdirSync(ro);
+        fs.chmodSync(ro, 0o555);
+        check('db fallback: read-only app dir falls back to /tmp/bijli-map', writableBase(ro) === path.join(os.tmpdir(), 'bijli-map'));
+        fs.chmodSync(ro, 0o755);
+      } else {
+        console.log('SKIP: read-only app dir fallback test (running as root — access checks always pass)');
+      }
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  }
   const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
     env: { ...process.env, PORT: String(PORT), DB_FILE: DB, ADMIN_CODE: CODE, SESSION_SECRET: SECRET, LOGIN_LOCK_SECONDS: '3', SESSION_TTL_SECONDS: '86400' },
     stdio: 'pipe',
@@ -350,6 +380,28 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
     const ownMsg2 = await post('/api/my/grid/' + peshGrid.id + '/message', { status: 'on', note: 'admin delete test' }, jar1);
     const admDelOwn = await post('/api/admin/message/delete', { id: ownMsg2.json.id }, adminJar);
     check('admin deletes a message in own grid', admDelOwn.status === 200, admDelOwn.json);
+
+    // ---- rate limits: master reset + admin publish ----
+    // Distinct X-Forwarded-For IPs so these floods cannot affect the rest
+    // of the suite (the suite's own master/admin calls use 127.0.0.1).
+    {
+      let saw429 = false; let made403 = 0;
+      for (let i = 0; i < 21; i++) {
+        const r = await req('/api/master/user/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.100' }, body: JSON.stringify({ code: 'wrong', gmail: 'peshawar.user@gmail.com', password: 'resetpass123' }) });
+        if (r.status === 429) { saw429 = true; break; }
+        if (r.status === 403) made403++;
+      }
+      check('master reset rate limit: 20 attempts from one IP, 21st gets 429 (wrong codes count)', saw429 && made403 === 20, { made403, saw429 });
+    }
+    {
+      let saw429 = false; let made200 = 0;
+      for (let i = 0; i < 61; i++) {
+        const r = await req('/api/admin/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.101' }, body: JSON.stringify({ grid_id: peshGrid.id, weekday: 4, windows: [{ start: '09:00', end: '11:00' }] }) }, adminJar);
+        if (r.status === 429) { saw429 = true; break; }
+        if (r.status === 200) made200++;
+      }
+      check('admin publish rate limit: 60 publishes from one IP, 61st gets 429', saw429 && made200 === 60, { made200, saw429 });
+    }
     // Audit log records the admin's publish. Master GET endpoints take
     // the code in the X-Master-Code header — never in the URL.
     const audit = (await req('/api/master/audit', { headers: { 'X-Master-Code': CODE } })).json;
@@ -402,6 +454,29 @@ function hmacHex(data) { return crypto.createHmac('sha256', SECRET).update(data)
     check('master resets the user password', resetOk.status === 200, resetOk.json);
     const resetLogin = await post('/api/auth/login', { gmail: 'peshawar.user@gmail.com', password: 'resetpass123' }, jar1);
     check('user logs in with the master-reset password', resetLogin.status === 200, resetLogin.json);
+
+    // ---- Secure cookie flag (regression) + local plain-HTTP login ----
+    // The session cookie must carry Secure (live sites are HTTPS-only).
+    // Browsers treat http://127.0.0.1 as a secure context, so local
+    // plain-HTTP login is expected to keep working — this checks the
+    // server side of that: a Secure cookie presented over plain HTTP to
+    // 127.0.0.1 is accepted by the server. (No real browser runs in this
+    // suite, so browser cookie-sending behaviour is the documented
+    // localhost rule, not a live browser observation.)
+    {
+      const r = await fetch(BASE + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ gmail: 'peshawar.user@gmail.com', password: 'resetpass123' }) });
+      const sc = r.headers.get('set-cookie') || '';
+      check('login Set-Cookie carries Secure (and HttpOnly, SameSite=Lax)',
+        r.status === 200 && /;\s*Secure;/.test(sc) && /HttpOnly/.test(sc) && /SameSite=Lax/.test(sc), sc);
+      const cookieVal = (sc.match(/bijli_session=[^;]*/) || [''])[0];
+      const me = await fetch(BASE + '/api/auth/me', { headers: { Cookie: cookieVal } });
+      const meJson = await me.json();
+      check('local plain-HTTP login still works on 127.0.0.1 with the Secure cookie presented',
+        me.status === 200 && meJson.logged_in === true, meJson);
+      const logoutRes = await fetch(BASE + '/api/auth/logout', { method: 'POST', headers: { Cookie: cookieVal } });
+      const logoutCookie = logoutRes.headers.get('set-cookie') || '';
+      check('logout Set-Cookie also carries Secure', /;\s*Secure;/.test(logoutCookie), logoutCookie);
+    }
 
     // ---- own-message flag (dashboard Delete button depends on it) ----
     const ownPost2 = await post('/api/my/grid/' + peshGrid.id + '/message', { status: 'off', note: 'own flag test' }, jar1);

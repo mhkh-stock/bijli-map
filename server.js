@@ -25,9 +25,18 @@ const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const { PROVINCE_ORDER, DISTRICTS, discoForDistrict } = require('./lib/districts');
 const { cnicPrefixForDistrict } = require('./lib/cnic');
+const { writableBase, resolveDbFile } = require('./lib/dbPath');
 
 const PORT = Number(process.env.PORT || 3031);
-const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data', 'bijli.sqlite');
+// Deploy-only writable-location fallback (FoodScope pattern): on a local
+// run __dirname is writable, so the database stays in data/bijli.sqlite
+// exactly as before. Only when the app dir cannot be written (e.g.
+// SnapDeploy's /app) does it move to /tmp/bijli-map/data/bijli.sqlite.
+// DB_FILE env always wins when set — use it on deploy for persistent
+// storage, because /tmp is wiped on container restart.
+const DATA_ROOT = writableBase(__dirname);
+const DB_FILE = resolveDbFile(__dirname, process.env.DB_FILE);
+if (DATA_ROOT !== __dirname) console.log('Bijli Map data directory (read-only app dir fallback):', DATA_ROOT);
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const ADMIN_CODE = process.env.ADMIN_CODE;
 if (!ADMIN_CODE) { console.error('FATAL: ADMIN_CODE env var is required — set a private code, there is no default.'); process.exit(1); }
@@ -345,6 +354,30 @@ function signupCounted(ip) {
   rec.count++;
   signupCounts.set(ip, rec);
 }
+
+// ---- generic per-IP rate limiting (in-memory): max N requests per
+// window for one key. Used by the master password reset (a wrong master
+// code is the brute-force target) and the admin schedule writes (publish
+// + delete). Limits are generous for real use — a master or an admin
+// never legitimately fires dozens of these in an hour — and only the
+// rate-limited endpoints count, so the rest of the app is unaffected.
+// (Behind the platform proxy the real client IP arrives in
+// X-Forwarded-For; a direct caller can spoof that header, so this is
+// abuse friction, not a hard guarantee — same caveat as the signup
+// limiter above.)
+const RATE_LIMITS = new Map(); // key -> { count, firstAt }
+function rateLimited(key, limit, windowMs) {
+  const now = Date.now();
+  const rec = RATE_LIMITS.get(key) || { count: 0, firstAt: now };
+  if (now - rec.firstAt > windowMs) { rec.count = 0; rec.firstAt = now; }
+  if (rec.count >= limit) return true;
+  rec.count++;
+  RATE_LIMITS.set(key, rec);
+  return false;
+}
+const MASTER_RESET_LIMIT = 20; // attempts per hour per IP
+const ADMIN_SCHEDULE_LIMIT = 60; // writes per hour per IP
+const RATE_WINDOW_MS = 60 * 60 * 1000;
 
 // ---- HTTP helpers ----
 function sendJson(res, code, obj, extraHeaders) {
@@ -737,6 +770,9 @@ const server = http.createServer(async (req, res) => {
       const u = sessionUser(req);
       if (!u) return sendJson(res, 401, { error: 'login required' });
       if (u.role !== 'admin' || !u.grid_id) return sendJson(res, 403, { error: 'admin account required' });
+      if (rateLimited('admin-schedule:' + clientIp(req), ADMIN_SCHEDULE_LIMIT, RATE_WINDOW_MS)) {
+        return sendJson(res, 429, { error: 'too many schedule writes — try again later' });
+      }
       const body = await readBody(req);
       if (!body || body.grid_id === undefined || body.weekday === undefined || !body.windows) {
         return sendJson(res, 400, { error: 'grid_id, weekday and windows required' });
@@ -760,6 +796,9 @@ const server = http.createServer(async (req, res) => {
       const u = sessionUser(req);
       if (!u) return sendJson(res, 401, { error: 'login required' });
       if (u.role !== 'admin' || !u.grid_id) return sendJson(res, 403, { error: 'admin account required' });
+      if (rateLimited('admin-schedule:' + clientIp(req), ADMIN_SCHEDULE_LIMIT, RATE_WINDOW_MS)) {
+        return sendJson(res, 429, { error: 'too many schedule writes — try again later' });
+      }
       const body = await readBody(req);
       if (!body || body.grid_id === undefined || body.weekday === undefined) {
         return sendJson(res, 400, { error: 'grid_id and weekday required' });
@@ -875,6 +914,12 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { users: rows });
     }
     if (p === '/api/master/user/reset-password' && req.method === 'POST') {
+      // Counted before the code check: the whole point is to slow a
+      // brute-force of the master code. A wrong code still burns one of
+      // the 20 hourly attempts from that IP.
+      if (rateLimited('master-reset:' + clientIp(req), MASTER_RESET_LIMIT, RATE_WINDOW_MS)) {
+        return sendJson(res, 429, { error: 'too many password resets — try again later' });
+      }
       const body = await readBody(req);
       if (!masterOk(body)) return sendJson(res, 403, { error: 'bad admin code' });
       const gmail = String(body.gmail || '').trim().toLowerCase();
